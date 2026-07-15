@@ -20,6 +20,8 @@ import {
   X
 } from "lucide-react";
 import CityCombobox from "@/components/CityCombobox";
+import { Toaster } from "@/components/Toaster";
+import { useToast } from "@/lib/useToast";
 
 export default function AtaDetailPage({
   params,
@@ -27,6 +29,7 @@ export default function AtaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: ataId } = use(params);
+  const { toast } = useToast();
   const {
     atas,
     representantes,
@@ -59,6 +62,11 @@ export default function AtaDetailPage({
   const [uploadRegion, setUploadRegion] = useState("");
   const [uploadFileName, setUploadFileName] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isPreFilledUpload, setIsPreFilledUpload] = useState(false);
+
+  // Transcription and PDF States
+  const [templateContent, setTemplateContent] = useState("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   // General States
   const [copied, setCopied] = useState(false);
@@ -67,6 +75,13 @@ export default function AtaDetailPage({
   const [whatsappSelectedRep, setWhatsappSelectedRep] = useState("other");
 
   const activeAta = atas.find((a) => a.id === ataId);
+
+  // Initialize template text
+  React.useEffect(() => {
+    if (activeAta && !templateContent) {
+      setTemplateContent(getLetterTemplate());
+    }
+  }, [activeAta, templateContent]);
 
   if (loading) {
     return (
@@ -206,8 +221,66 @@ ___________________________________________
 Representante Autorizado`;
   };
 
+  const displayTemplateText = templateContent || getLetterTemplate();
+
+  // Download styled PDF
+  const downloadPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      
+      const lines = displayTemplateText.split("\n");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      
+      let y = 20;
+      const margin = 20;
+      const pageHeight = doc.internal.pageSize.height;
+
+      lines.forEach((line) => {
+        if (y > pageHeight - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        
+        const splitText = doc.splitTextToSize(line, 170);
+        splitText.forEach((textLine: string) => {
+          doc.text(textLine, margin, y);
+          y += 6;
+        });
+      });
+
+      doc.save(`Modelo_Oficio_Adesao_${activeAta.number.replace(/\//g, "-")}.pdf`);
+      
+      toast({
+        description: "PDF gerado e baixado com sucesso!",
+      });
+      return true;
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+      return false;
+    }
+  };
+
+  // Simulate Transcription
+  const handleFileTranscription = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsTranscribing(true);
+
+    setTimeout(() => {
+      setIsTranscribing(false);
+      
+      toast({
+        description: `Arquivo "${file.name}" transcrito com sucesso!`,
+      });
+    }, 2500);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      <Toaster />
       {/* Breadcrumb Navigation */}
       <div>
         <Link
@@ -418,43 +491,162 @@ Representante Autorizado`;
                         </div>
                       </div>
 
-                      {/* List/Table of Cities */}
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="border-b border-slate-100 bg-slate-50/20 text-[10px] font-bold text-slate-400 uppercase">
-                              <th className="p-4">Cidade / Região</th>
-                              <th className="p-4">Prazo de Envio do Ofício</th>
-                              <th className="p-4 text-right">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-50">
-                            {activeRepReservations.map((rep) => (
-                              <tr key={rep.id} className="hover:bg-slate-50/30 transition-colors">
-                                <td className="p-4 font-semibold text-slate-800">{rep.region}</td>
-                                <td className="p-4 text-slate-500">
-                                  <div className="flex items-center gap-1.5">
-                                    <Calendar size={12} className="text-slate-400" />
-                                    <span>{rep.waitingDeadline}</span>
-                                  </div>
-                                </td>
-                                <td className="p-4 text-right">
-                                  <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${getStatusBadge(rep.status)}`}>
-                                    {getStatusLabel(rep.status)}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      {/* Grid of City Cards */}
+                      <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto bg-slate-50/20">
+                        {activeRepReservations.map((rep) => {
+                          // Check if there is an office pending for this rep and region
+                          const pendingOficio = filteredOficios.find(
+                            (o) =>
+                              o.representanteName === activeRepName &&
+                              o.region === rep.region &&
+                              o.status === "pending"
+                          );
+                          
+                          // Check if there is an approved office/authorization
+                          const approvedAut = filteredAutorizacoes.find(
+                            (a) =>
+                              a.representanteName === activeRepName &&
+                              a.region === rep.region
+                          );
 
-                      {/* Informational Footer */}
-                      <div className="p-4 bg-slate-50/50 border-t border-slate-100 text-xxs text-slate-400 flex items-center gap-2">
-                        <AlertTriangle size={12} className="text-amber-500 shrink-0" />
-                        <span>
-                          Para alterar o status de uma cota de adesão, anexe o ofício recebido na aba correspondente acima.
-                        </span>
+                          // Colors and icons per status
+                          let cardBg = "bg-white border-slate-200";
+                          let statusLabel = getStatusLabel(rep.status);
+                          let statusColorClass = "text-slate-600 bg-slate-50 border-slate-100";
+
+                          if (rep.status === "active") {
+                            cardBg = "bg-white border-emerald-100 hover:border-emerald-200 shadow-emerald-50/5";
+                            statusColorClass = "text-emerald-700 bg-emerald-50 border-emerald-100";
+                          } else if (rep.status === "waiting_letter") {
+                            if (pendingOficio) {
+                              cardBg = "bg-white border-indigo-150 hover:border-indigo-250 shadow-indigo-50/5 ring-1 ring-indigo-50/50";
+                              statusColorClass = "text-indigo-700 bg-indigo-50 border-indigo-100";
+                              statusLabel = "Ofício Recebido (Pendente)";
+                            } else {
+                              cardBg = "bg-white border-amber-100 hover:border-amber-200 shadow-amber-50/5";
+                              statusColorClass = "text-amber-700 bg-amber-50 border-amber-100";
+                            }
+                          } else if (rep.status === "waitlist") {
+                            cardBg = "bg-white border-slate-200 hover:border-amber-200 shadow-amber-50/5";
+                            statusColorClass = "text-amber-800 bg-amber-100 border-amber-300";
+                          } else if (rep.status === "expired") {
+                            cardBg = "bg-white border-rose-100 hover:border-rose-200 shadow-rose-50/5";
+                            statusColorClass = "text-rose-700 bg-rose-50 border-rose-100";
+                          }
+
+                          return (
+                            <div 
+                              key={rep.id} 
+                              className={`border rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 group ${cardBg}`}
+                            >
+                              <div className="space-y-3">
+                                {/* Header: Region & Status Badge */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="space-y-0.5">
+                                    <h4 className="font-extrabold text-sm text-slate-800 tracking-tight">
+                                      {rep.region}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                      <Calendar size={11} className="text-slate-400" />
+                                      Prazo: {rep.waitingDeadline}
+                                    </p>
+                                  </div>
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusColorClass}`}>
+                                    {statusLabel}
+                                  </span>
+                                </div>
+
+                                {/* Pending Document Alert inside Card */}
+                                {pendingOficio && (
+                                  <div className="bg-indigo-50/55 border border-indigo-100 rounded-lg p-2.5 flex items-start gap-1.5 text-[10px] text-indigo-900 leading-tight">
+                                    <FileText size={12} className="text-indigo-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-0.5">
+                                      <p className="font-semibold truncate max-w-[160px]">{pendingOficio.fileName}</p>
+                                      <p className="text-[9px] text-indigo-650/80">Recebido em {pendingOficio.sentAt}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Card Actions Footer */}
+                              <div className="pt-3 border-t border-slate-100 flex flex-col gap-1.5 mt-auto">
+                                {/* Case 1: Active/Aprovado -> download certificate */}
+                                {rep.status === "active" && (
+                                  <button
+                                    onClick={() => {
+                                      if (approvedAut) {
+                                        alert(`MOCK DOWNLOAD: Baixando arquivo ${approvedAut.documentNumber}.pdf para formalização.`);
+                                      } else {
+                                        alert("Baixando Certificado de Autorização de Adesão.");
+                                      }
+                                    }}
+                                    className="w-full flex items-center justify-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-150 font-bold text-[10px] py-1.5 rounded-lg transition-all cursor-pointer"
+                                  >
+                                    <Download size={12} />
+                                    Baixar Certificado
+                                  </button>
+                                )}
+
+                                {/* Case 2: Waiting Letter (normal) -> Upload/WhatsApp */}
+                                {rep.status === "waiting_letter" && !pendingOficio && (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setUploadRepName(activeRepName);
+                                        setUploadRegion(rep.region);
+                                        setIsPreFilledUpload(true);
+                                        setIsOficioModalOpen(true);
+                                      }}
+                                      className="flex items-center justify-center gap-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] py-1.5 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Upload size={12} />
+                                      Anexar Ofício
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setWhatsappSelectedRep(activeRepName);
+                                        setWhatsappPhone("");
+                                        setIsWhatsappModalOpen(true);
+                                      }}
+                                      className="flex items-center justify-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] py-1.5 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.454 5.709 1.455h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                      </svg>
+                                      Enviar Modelo
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Case 3: Waiting Letter with pending document -> Homologar directly */}
+                                {rep.status === "waiting_letter" && pendingOficio && (
+                                  <button
+                                    onClick={() => approveOficio(pendingOficio.id)}
+                                    className="w-full flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
+                                  >
+                                    <Check size={12} className="stroke-[3]" />
+                                    Homologar e Aprovar Adesão
+                                  </button>
+                                )}
+
+                                {/* Case 4: Waitlist -> warning or details */}
+                                {rep.status === "waitlist" && (
+                                  <div className="text-[10px] text-slate-500 font-medium bg-slate-50 border border-slate-100 rounded-lg p-2 text-center leading-normal">
+                                    Em Fila: Aguardando liberação de cota.
+                                  </div>
+                                )}
+
+                                {/* Case 5: Expired -> renew or caution */}
+                                {rep.status === "expired" && (
+                                  <div className="text-[10px] text-rose-600 font-semibold bg-rose-50/50 border border-rose-100 rounded-lg p-2 text-center leading-normal flex items-center justify-center gap-1">
+                                    <AlertTriangle size={12} />
+                                    Prazo para envio expirado.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (
@@ -475,48 +667,70 @@ Representante Autorizado`;
               <div>
                 <h3 className="font-bold text-sm text-slate-800">Modelo Oficial para Adesão</h3>
                 <p className="text-slate-500 text-[10px] mt-0.5">
-                  Copie o texto base abaixo para que o representante envie a formalização de cota.
+                  Copie o texto base abaixo ou envie um documento para transcrever automaticamente o ofício.
                 </p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center flex-wrap">
+                {/* File input for transcription */}
+                <input
+                  type="file"
+                  id="transcription-upload"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={handleFileTranscription}
+                  disabled={isTranscribing}
+                />
+                <label
+                  htmlFor="transcription-upload"
+                  className="flex items-center gap-1.5 bg-indigo-650 hover:bg-indigo-750 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  <Upload size={14} />
+                  Transcrever Arquivo
+                </label>
+
                 <button
                   onClick={copyTemplateToClipboard}
-                  className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs px-3.5 py-2 rounded-xl transition-all border border-indigo-150 shadow-sm"
+                  className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs px-3.5 py-2 rounded-xl transition-all border border-indigo-150 shadow-sm cursor-pointer"
                 >
                   {copied ? <Check size={14} className="text-indigo-650" /> : <ClipboardCheck size={14} />}
                   {copied ? "Copiado!" : "Copiar Modelo"}
                 </button>
+                
                 <button
                   onClick={() => setIsWhatsappModalOpen(true)}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm"
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
                 >
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.454 5.709 1.455h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.454 5.709 1.455h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                   </svg>
                   WhatsApp
                 </button>
+                
                 <button
-                  onClick={() => {
-                    const blob = new Blob([getLetterTemplate()], { type: "text/plain;charset=utf-8" });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.download = `Modelo_Oficio_Adesao_${activeAta.number.replace(/\//g, "-")}.txt`;
-                    link.click();
-                  }}
-                  className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm"
+                  onClick={downloadPDF}
+                  className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
                 >
                   <Download size={14} />
-                  Baixar .TXT
+                  Baixar PDF
                 </button>
               </div>
             </div>
 
-            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-150 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap select-all relative group">
-              <pre id="oficio-template-text" className="font-sans leading-loose text-slate-650">
-                {getLetterTemplate()}
-              </pre>
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-150 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap select-all relative group overflow-hidden">
+              {isTranscribing ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-4 text-center animate-pulse">
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-650" />
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-700">Lendo e Transcrevendo Ofício...</p>
+                    <p className="text-[10px] text-slate-400">A IA está extraindo as informações societárias e preenchendo o modelo.</p>
+                  </div>
+                </div>
+              ) : (
+                <pre id="oficio-template-text" className="font-sans leading-loose text-slate-650">
+                  {displayTemplateText}
+                </pre>
+              )}
             </div>
 
             <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 text-xxs text-indigo-955 flex gap-3 items-start">
@@ -540,7 +754,12 @@ Representante Autorizado`;
                 <span className="text-[10px] text-slate-400 font-medium">Aguardando aprovação</span>
               </div>
               <button
-                onClick={() => setIsOficioModalOpen(true)}
+                onClick={() => {
+                  setUploadRepName("");
+                  setUploadRegion("");
+                  setIsPreFilledUpload(false);
+                  setIsOficioModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[10px] px-3 py-2 rounded-lg transition-colors"
               >
                 <Upload size={14} /> Anexar Ofício
@@ -760,43 +979,77 @@ Representante Autorizado`;
                   </div>
                 )}
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Representante Remetente
-                  </label>
-                  <select
-                    value={uploadRepName}
-                    onChange={(e) => {
-                      setUploadRepName(e.target.value);
-                      const matched = filteredReps.find((r) => r.name === e.target.value);
-                      if (matched) setUploadRegion(matched.region);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  >
-                    <option value="">Selecione o vendedor...</option>
-                    {filteredReps
-                      .filter((r) => r.status === "waiting_letter" || r.status === "expired")
-                      .map((r) => (
-                        <option key={r.id} value={r.name}>
-                          {r.name} ({r.region})
-                        </option>
-                      ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Cidade Automática
-                  </label>
-                  <input
-                    type="text"
-                    value={uploadRegion}
-                    disabled
-                    placeholder="Selecione o representante acima..."
-                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-450 focus:outline-none cursor-not-allowed"
-                  />
-                </div>
+                {isPreFilledUpload ? (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Representante Remetente
+                      </label>
+                      <input
+                        type="text"
+                        value={uploadRepName}
+                        disabled
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed font-medium"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Cidade / Região
+                      </label>
+                      <input
+                        type="text"
+                        value={uploadRegion}
+                        disabled
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed font-medium"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Representante Remetente
+                      </label>
+                      <select
+                        value={uploadRepName && uploadRegion ? `${uploadRepName}|||${uploadRegion}` : ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            const [name, region] = val.split("|||");
+                            setUploadRepName(name);
+                            setUploadRegion(region);
+                          } else {
+                            setUploadRepName("");
+                            setUploadRegion("");
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      >
+                        <option value="">Selecione o vendedor...</option>
+                        {filteredReps
+                          .filter((r) => r.status === "waiting_letter" || r.status === "expired")
+                          .map((r) => (
+                            <option key={r.id} value={`${r.name}|||${r.region}`}>
+                              {r.name} ({r.region})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Cidade / Região
+                      </label>
+                      <input
+                        type="text"
+                        value={uploadRegion}
+                        disabled
+                        placeholder="Selecione o representante acima..."
+                        className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-450 focus:outline-none cursor-not-allowed"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -842,14 +1095,18 @@ Representante Autorizado`;
             
             <div className="p-5">
               <form 
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   let cleanPhone = whatsappPhone.replace(/\D/g, "");
                   if (cleanPhone.length > 0) {
                     if (cleanPhone.length <= 11) {
                       cleanPhone = "55" + cleanPhone;
                     }
-                    const text = getLetterTemplate();
+                    
+                    // Download PDF first so user can attach it
+                    await downloadPDF();
+                    
+                    const text = `Olá! Segue em anexo o PDF do Ofício de Adesão formalizado para a cota da ata ${activeAta.number}. (Por favor, anexe o arquivo PDF que acabou de ser baixado nesta conversa).`;
                     const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
                     window.open(url, "_blank");
                     setIsWhatsappModalOpen(false);
