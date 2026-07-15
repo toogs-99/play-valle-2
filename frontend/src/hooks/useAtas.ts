@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useBrand } from "@/context/BrandContext";
 
 export interface Ata {
   id: string;
@@ -144,69 +145,152 @@ const MOCK_AUTORIZACOES: AutorizacaoAdesao[] = [
   },
 ];
 
+const PLAY_MOCK_ATAS: Ata[] = [
+  {
+    id: "ata-play-001",
+    number: "PLAY ATA 005/2026",
+    organ: "Prefeitura de Campinas",
+    description: "Adesão para fornecimento de brinquedos infantis acessíveis e playgrounds modulares adaptados",
+    createdAt: "12/03/2026",
+  },
+  {
+    id: "ata-play-002",
+    number: "PLAY ATA 087/2025",
+    organ: "Secretaria de Esportes e Lazer - SP",
+    description: "Estruturas de madeira tratada autoclavada para parquinho infantil (balanços, escorregadores, gangorras e casinhas de tarzan)",
+    createdAt: "05/12/2025",
+  },
+  {
+    id: "ata-play-003",
+    number: "PLAY ATA SIMPLIFICADA 003/2026",
+    organ: "Prefeitura de São José dos Campos",
+    description: "Pisos emborrachados de segurança, amortecedores de impacto e grama sintética para playgrounds escolares",
+    createdAt: "18/01/2026",
+  },
+];
+
+const PLAY_MOCK_REPRESENTANTES: RepresentanteAta[] = [
+  {
+    id: "rep-play-1",
+    ataId: "ata-play-001",
+    name: "Playground Brasil Dist. Ltda",
+    region: "Vale do Paraíba - SP",
+    waitingDeadline: "04/08/2026",
+    status: "active",
+  },
+  {
+    id: "rep-play-2",
+    ataId: "ata-play-001",
+    name: "Carlos Eduardo Balanços",
+    region: "Campinas - SP",
+    waitingDeadline: "15/07/2026",
+    status: "waiting_letter",
+  },
+  {
+    id: "rep-play-3",
+    ataId: "ata-play-002",
+    name: "Recrear Parques & Lazer",
+    region: "Litoral Norte - SP",
+    waitingDeadline: "10/06/2026",
+    status: "expired",
+  },
+];
+
+const PLAY_MOCK_OFICIOS: OficioRecebido[] = [
+  {
+    id: "oficio-play-1",
+    ataId: "ata-play-001",
+    representanteName: "Carlos Eduardo Balanços",
+    region: "Campinas - SP",
+    fileName: "oficio_solicitacao_carlos_balancos.pdf",
+    sentAt: "14/07/2026",
+    status: "pending",
+  },
+];
+
+const PLAY_MOCK_AUTORIZACOES: AutorizacaoAdesao[] = [
+  {
+    id: "aut-play-1",
+    ataId: "ata-play-001",
+    representanteName: "Playground Brasil Dist. Ltda",
+    region: "Vale do Paraíba - SP",
+    documentNumber: "AUT-2026-PLAY001",
+    issuedAt: "10/05/2026",
+  },
+];
+
 export function useAtas() {
+  const { brand } = useBrand();
   const [atas, setAtas] = useState<Ata[]>([]);
   const [representantes, setRepresentantes] = useState<RepresentanteAta[]>([]);
   const [oficios, setOficios] = useState<OficioRecebido[]>([]);
   const [autorizacoes, setAutorizacoes] = useState<AutorizacaoAdesao[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const prefix = brand === "play" ? "play_" : "esporte_";
+
   useEffect(() => {
+    setLoading(true);
     // Load from localStorage if exists, otherwise load mocks
-    const storedAtas = localStorage.getItem("licitflow_atas");
-    const storedReps = localStorage.getItem("licitflow_representantes");
-    const storedOficios = localStorage.getItem("licitflow_oficios");
-    const storedAuts = localStorage.getItem("licitflow_autorizacoes");
+    const storedAtas = localStorage.getItem(`${prefix}licitflow_atas`);
+    const storedReps = localStorage.getItem(`${prefix}licitflow_representantes`);
+    const storedOficios = localStorage.getItem(`${prefix}licitflow_oficios`);
+    const storedAuts = localStorage.getItem(`${prefix}licitflow_autorizacoes`);
+
+    const currentMockAtas = brand === "play" ? PLAY_MOCK_ATAS : MOCK_ATAS;
+    const currentMockReps = brand === "play" ? PLAY_MOCK_REPRESENTANTES : MOCK_REPRESENTANTES;
+    const currentMockOficios = brand === "play" ? PLAY_MOCK_OFICIOS : MOCK_OFICIOS;
+    const currentMockAuts = brand === "play" ? PLAY_MOCK_AUTORIZACOES : MOCK_AUTORIZACOES;
 
     if (storedAtas) {
       setAtas(JSON.parse(storedAtas));
     } else {
-      setAtas(MOCK_ATAS);
-      localStorage.setItem("licitflow_atas", JSON.stringify(MOCK_ATAS));
+      setAtas(currentMockAtas);
+      localStorage.setItem(`${prefix}licitflow_atas`, JSON.stringify(currentMockAtas));
     }
 
     if (storedReps) {
       setRepresentantes(JSON.parse(storedReps));
     } else {
-      setRepresentantes(MOCK_REPRESENTANTES);
-      localStorage.setItem("licitflow_representantes", JSON.stringify(MOCK_REPRESENTANTES));
+      setRepresentantes(currentMockReps);
+      localStorage.setItem(`${prefix}licitflow_representantes`, JSON.stringify(currentMockReps));
     }
 
     if (storedOficios) {
       setOficios(JSON.parse(storedOficios));
     } else {
-      setOficios(MOCK_OFICIOS);
-      localStorage.setItem("licitflow_oficios", JSON.stringify(MOCK_OFICIOS));
+      setOficios(currentMockOficios);
+      localStorage.setItem(`${prefix}licitflow_oficios`, JSON.stringify(currentMockOficios));
     }
 
     if (storedAuts) {
       setAutorizacoes(JSON.parse(storedAuts));
     } else {
-      setAutorizacoes(MOCK_AUTORIZACOES);
-      localStorage.setItem("licitflow_autorizacoes", JSON.stringify(MOCK_AUTORIZACOES));
+      setAutorizacoes(currentMockAuts);
+      localStorage.setItem(`${prefix}licitflow_autorizacoes`, JSON.stringify(currentMockAuts));
     }
 
     setLoading(false);
-  }, []);
+  }, [brand, prefix]);
 
   const saveAtas = (newAtas: Ata[]) => {
     setAtas(newAtas);
-    localStorage.setItem("licitflow_atas", JSON.stringify(newAtas));
+    localStorage.setItem(`${prefix}licitflow_atas`, JSON.stringify(newAtas));
   };
 
   const saveReps = (newReps: RepresentanteAta[]) => {
     setRepresentantes(newReps);
-    localStorage.setItem("licitflow_representantes", JSON.stringify(newReps));
+    localStorage.setItem(`${prefix}licitflow_representantes`, JSON.stringify(newReps));
   };
 
   const saveOficios = (newOficios: OficioRecebido[]) => {
     setOficios(newOficios);
-    localStorage.setItem("licitflow_oficios", JSON.stringify(newOficios));
+    localStorage.setItem(`${prefix}licitflow_oficios`, JSON.stringify(newOficios));
   };
 
   const saveAuts = (newAuts: AutorizacaoAdesao[]) => {
     setAutorizacoes(newAuts);
-    localStorage.setItem("licitflow_autorizacoes", JSON.stringify(newAuts));
+    localStorage.setItem(`${prefix}licitflow_autorizacoes`, JSON.stringify(newAuts));
   };
 
   const addAta = (number: string, organ: string, description: string) => {

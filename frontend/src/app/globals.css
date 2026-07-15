@@ -30,6 +30,24 @@
   --radius: 0.625rem;
 }
 
+.brand-play {
+  --primary: #0F6F5B;
+  --primary-hover: #0B5243;
+  --primary-light: #EBF7F4;
+  --secondary-foreground: #0F6F5B;
+  --accent: #F59E0B;
+  --ring: #0F6F5B;
+}
+
+.brand-play.dark,
+.brand-play .dark {
+  --primary: #2EC4B6;
+  --primary-hover: #22A699;
+  --primary-light: #162D2B;
+  --ring: #2EC4B6;
+  --accent: #FF9F1C;
+}
+
 .dark {
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);

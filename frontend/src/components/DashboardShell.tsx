@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useBrand } from "@/context/BrandContext";
 import {
   Bell,
   FileText,
@@ -30,11 +31,45 @@ interface SidebarItem {
   badgeType?: "danger" | "warning" | "info";
 }
 
+const BrandLogo = ({ brand }: { brand: 'esporte' | 'play' }) => {
+  if (brand === 'esporte') {
+    return (
+      <img 
+        src="/logo.png" 
+        alt="Esporte Valle" 
+        className="max-h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]" 
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 group transition-all duration-200">
+      <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200 shrink-0">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 22V4c0-.5.2-1 .6-1.4C5 2.2 5.5 2 6 2h12c.5 0 1 .2 1.4.6.4.4.6.9.6 1.4v18" />
+          <path d="M18 14h-8a2 2 0 0 0-2 2v6" />
+          <circle cx="14" cy="7" r="2" />
+        </svg>
+      </div>
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-black tracking-tight leading-none text-indigo-900 uppercase">
+          Play <span className="text-amber-500">Valle</span>
+        </span>
+        <span className="text-[8px] font-bold tracking-wider text-slate-400 uppercase leading-none mt-1">
+          Playgrounds & Parques
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export default function DashboardShell({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { brand, setBrand } = useBrand();
+  const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -137,15 +172,68 @@ export default function DashboardShell({
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-slate-200 bg-slate-50">
-        {/* Brand Header */}
-        <div className="flex h-16 items-center px-6 border-b border-slate-100">
-          <Link href="/alertas" className="flex items-center group w-full">
-            <img 
-              src="/logo.png" 
-              alt="Esporte Valle" 
-              className="max-h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]" 
-            />
-          </Link>
+        {/* Brand Header & Switcher */}
+        <div className="h-16 border-b border-slate-100 flex items-center px-4 relative shrink-0">
+          <button
+            onClick={() => setBrandDropdownOpen(!brandDropdownOpen)}
+            className="flex items-center justify-between w-full hover:bg-slate-100/50 p-2 rounded-xl transition-all text-left group"
+          >
+            <BrandLogo brand={brand} />
+            <span className="text-slate-400 group-hover:text-slate-655 transition-colors ml-1">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </span>
+          </button>
+
+          {brandDropdownOpen && (
+            <>
+              <div 
+                className="fixed inset-0 z-20" 
+                onClick={() => setBrandDropdownOpen(false)} 
+              />
+              <div className="absolute top-14 left-4 right-4 bg-white rounded-xl shadow-lg border border-slate-150 p-1.5 z-30 animate-in fade-in duration-200">
+                <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Selecione a Empresa
+                </div>
+                {[
+                  {
+                    id: "esporte" as const,
+                    name: "Esporte Valle",
+                    desc: "Materiais Esportivos",
+                  },
+                  {
+                    id: "play" as const,
+                    name: "Play Valle",
+                    desc: "Playgrounds & Parques",
+                  }
+                ].map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={() => {
+                      setBrand(b.id);
+                      setBrandDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
+                      brand === b.id 
+                        ? "bg-slate-50 font-semibold text-slate-900" 
+                        : "hover:bg-slate-50 text-slate-600"
+                    }`}
+                  >
+                    <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                      b.id === 'esporte' ? 'bg-[#1F2A5A]' : 'bg-[#0F6F5B]'
+                    }`}>
+                      {b.id === 'esporte' ? 'EV' : 'PV'}
+                    </div>
+                    <div className="flex-1 min-w-0 leading-tight">
+                      <p className="text-xs font-bold truncate">{b.name}</p>
+                      <p className="text-[9px] text-slate-450 truncate">{b.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Sidebar Navigation */}
@@ -247,12 +335,69 @@ export default function DashboardShell({
             </button>
           </div>
 
-          <div className="flex h-12 items-center px-6 border-b border-slate-100 pb-4">
-            <img 
-              src="/logo.png" 
-              alt="Esporte Valle" 
-              className="max-h-9 w-auto object-contain" 
-            />
+          {/* Mobile Drawer Header & Switcher */}
+          <div className="h-14 border-b border-slate-100 flex items-center px-4 relative shrink-0">
+            <button
+              onClick={() => setBrandDropdownOpen(!brandDropdownOpen)}
+              className="flex items-center justify-between w-full hover:bg-slate-100/50 p-2 rounded-xl transition-all text-left group"
+            >
+              <BrandLogo brand={brand} />
+              <span className="text-slate-400 group-hover:text-slate-655 transition-colors ml-1">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </span>
+            </button>
+
+            {brandDropdownOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-20" 
+                  onClick={() => setBrandDropdownOpen(false)} 
+                />
+                <div className="absolute top-12 left-4 right-4 bg-white rounded-xl shadow-lg border border-slate-150 p-1.5 z-30 animate-in fade-in duration-200">
+                  <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Selecione a Empresa
+                  </div>
+                  {[
+                    {
+                      id: "esporte" as const,
+                      name: "Esporte Valle",
+                      desc: "Materiais Esportivos",
+                    },
+                    {
+                      id: "play" as const,
+                      name: "Play Valle",
+                      desc: "Playgrounds & Parques",
+                    }
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => {
+                        setBrand(b.id);
+                        setBrandDropdownOpen(false);
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
+                        brand === b.id 
+                          ? "bg-slate-50 font-semibold text-slate-900" 
+                          : "hover:bg-slate-50 text-slate-600"
+                      }`}
+                    >
+                      <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                        b.id === 'esporte' ? 'bg-[#1F2A5A]' : 'bg-[#0F6F5B]'
+                      }`}>
+                        {b.id === 'esporte' ? 'EV' : 'PV'}
+                      </div>
+                      <div className="flex-1 min-w-0 leading-tight">
+                        <p className="text-xs font-bold truncate">{b.name}</p>
+                        <p className="text-[9px] text-slate-450 truncate">{b.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-5 flex-1 h-0 overflow-y-auto px-4">
