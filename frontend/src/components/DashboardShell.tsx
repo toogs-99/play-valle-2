@@ -43,22 +43,34 @@ const BrandLogo = ({ brand }: { brand: 'esporte' | 'play' }) => {
   }
 
   return (
-    <div className="flex items-center gap-2.5 group transition-all duration-200">
-      <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center text-white shadow-sm group-hover:scale-105 transition-transform duration-200 shrink-0">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4 22V4c0-.5.2-1 .6-1.4C5 2.2 5.5 2 6 2h12c.5 0 1 .2 1.4.6.4.4.6.9.6 1.4v18" />
-          <path d="M18 14h-8a2 2 0 0 0-2 2v6" />
-          <circle cx="14" cy="7" r="2" />
-        </svg>
-      </div>
-      <div className="flex flex-col min-w-0">
-        <span className="text-sm font-black tracking-tight leading-none text-indigo-900 uppercase">
-          Play <span className="text-amber-500">Valle</span>
-        </span>
-        <span className="text-[8px] font-bold tracking-wider text-slate-400 uppercase leading-none mt-1">
-          Playgrounds & Parques
-        </span>
-      </div>
+    <div className="flex items-center gap-1.5 group transition-all duration-200">
+      <svg viewBox="0 0 200 180" className="h-11 w-auto object-contain shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Purple Background Blobs */}
+        <path d="M50 30 C20 30 10 70 30 100 C50 130 90 120 110 140 C130 160 170 150 180 120 C190 90 180 50 150 40 C120 30 80 30 50 30 Z" fill="#7B2CBF" />
+        {/* Pink Background Blobs */}
+        <path d="M40 60 C10 80 20 120 50 130 C80 140 100 120 130 145 C160 170 190 130 170 100 C150 70 160 40 130 35 C100 30 70 40 40 60 Z" fill="#E0115F" />
+        {/* Yellow Splash */}
+        <path d="M60 40 C40 40 30 60 30 85 C30 110 50 125 70 130 C90 135 110 125 130 135 C150 145 170 130 170 105 C170 80 155 55 135 45 C115 35 80 40 60 40 Z" fill="#FFC300" />
+        
+        {/* Text PLAY (Outline + Fill) */}
+        <text x="35" y="85" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="34" letterSpacing="-1" stroke="white" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" fill="white">PLAY</text>
+        <text x="35" y="85" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="34" letterSpacing="-1">
+          <tspan fill="#FF7A00">P</tspan>
+          <tspan fill="#E0115F">L</tspan>
+          <tspan fill="#7B2CBF">A</tspan>
+          <tspan fill="#00B4D8">Y</tspan>
+        </text>
+
+        {/* Text VALLE (Outline + Fill) */}
+        <text x="32" y="122" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="32" letterSpacing="-1" stroke="white" strokeWidth="8" strokeLinejoin="round" strokeLinecap="round" fill="white">VALLE</text>
+        <text x="32" y="122" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="32" letterSpacing="-1">
+          <tspan fill="#7B2CBF">V</tspan>
+          <tspan fill="#00B4D8">A</tspan>
+          <tspan fill="#FF7A00">L</tspan>
+          <tspan fill="#E0115F">L</tspan>
+          <tspan fill="#7B2CBF">E</tspan>
+        </text>
+      </svg>
     </div>
   );
 };
