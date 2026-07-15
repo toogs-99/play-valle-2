@@ -20,7 +20,8 @@ import {
   HelpCircle,
   Camera,
   MessageSquare,
-  Mail
+  Mail,
+  Megaphone
 } from "lucide-react";
 
 interface SidebarItem {
@@ -116,6 +117,11 @@ export default function DashboardShell({
       name: "Instagram",
       href: "/instagram",
       icon: Camera,
+    },
+    {
+      name: "Anúncios",
+      href: "/anuncios",
+      icon: Megaphone,
     },
     {
       name: "WhatsApp",
