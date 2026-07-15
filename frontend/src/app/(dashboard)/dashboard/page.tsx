@@ -135,8 +135,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Mini KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
+        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
             <DollarSign size={12} className="text-primary" /> Faturamento Estimado (Anual)
           </span>
@@ -144,11 +144,11 @@ export default function DashboardPage() {
             R$ 342.750,00
           </h3>
           <p className="text-[10px] text-emerald-600 font-medium mt-2">
-            +12.4% em relação ao ano anterior
+            +12.4% vs anterior
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
             <Users size={12} className="text-primary" /> Vendedores Ativos
           </span>
@@ -156,11 +156,11 @@ export default function DashboardPage() {
             {representantes.length > 0 ? representantes.length : 15}
           </h3>
           <p className="text-[10px] text-muted-foreground font-medium mt-2">
-            Agrupados por região de interesse
+            Por região de interesse
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
             <FileText size={12} className="text-primary" /> Atas Ativas
           </span>
@@ -168,11 +168,11 @@ export default function DashboardPage() {
             {atas.length}
           </h3>
           <p className="text-[10px] text-muted-foreground font-medium mt-2">
-            Documentos em monitoramento ativo
+            Em monitoramento ativo
           </p>
         </div>
 
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
             <MapPin size={12} className="text-primary" /> Adesões Autorizadas
           </span>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
             {autorizacoes.length}
           </h3>
           <p className="text-[10px] text-emerald-600 font-medium mt-2">
-            Ofícios aprovados e expedidos
+            Ofícios expedidos
           </p>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function DashboardPage() {
               showLegend={false}
               showYAxis={false}
               startEndOnly={true}
-              className="h-48"
+              className="h-[220px] md:h-80"
               tooltipCallback={(props) => {
                 if (props.active) {
                   setHoveredMonthlyData((prev) => {
@@ -385,7 +385,7 @@ export default function DashboardPage() {
               showLegend={false}
               showYAxis={false}
               startEndOnly={true}
-              className="h-52"
+              className="h-[220px] md:h-80"
               tooltipCallback={(props) => {
                 if (props.active) {
                   setHoveredFilteredData((prev) => {

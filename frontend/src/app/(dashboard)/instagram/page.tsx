@@ -35,72 +35,72 @@ export default function InstagramPage() {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
         {/* Seguidores */}
-        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-4 md:p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
                 Seguidores
               </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
+              <h3 className="text-2xl md:text-3xl font-black text-foreground mt-1 tracking-tight font-display">
                 4.827
               </h3>
             </div>
           </div>
           <p className="text-[10px] text-emerald-600 font-medium mt-3 flex items-center gap-1 font-text">
-            +312 este mês (+6,9%)
+            +312 (+6,9%)
           </p>
         </div>
 
         {/* Alcance */}
-        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-4 md:p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-                Alcance (30 dias)
+                Alcance (30d)
               </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
+              <h3 className="text-2xl md:text-3xl font-black text-foreground mt-1 tracking-tight font-display">
                 38.450
               </h3>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground font-medium mt-3 flex items-center gap-1 font-text">
-            Impressões e visualizações do perfil
+          <p className="text-[10px] text-muted-foreground font-medium mt-3 flex items-center gap-1 font-text truncate">
+            Visualizações do perfil
           </p>
         </div>
 
         {/* Taxa de Engajamento */}
-        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-4 md:p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-                Taxa de Engajamento
+                Engajamento
               </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
+              <h3 className="text-2xl md:text-3xl font-black text-foreground mt-1 tracking-tight font-display">
                 4,8%
               </h3>
             </div>
           </div>
           <p className="text-[10px] text-emerald-600 font-medium mt-3 flex items-center gap-1 font-text">
-            +0,6 p.p. vs mês anterior
+            +0,6 p.p. vs anterior
           </p>
         </div>
 
         {/* Cliques p/ WhatsApp */}
-        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-4 md:p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-                Cliques p/ WhatsApp
+                Cliques WhatsApp
               </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
+              <h3 className="text-2xl md:text-3xl font-black text-foreground mt-1 tracking-tight font-display">
                 214
               </h3>
             </div>
           </div>
           <p className="text-[10px] text-emerald-600 font-medium mt-3 flex items-center gap-1 font-text">
-            +18% vs mês anterior
+            +18% vs anterior
           </p>
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function InstagramPage() {
               showLegend={false}
               showYAxis={false}
               startEndOnly={true}
-              className="h-48"
+              className="h-[220px] md:h-80"
             />
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function InstagramPage() {
             </p>
           </div>
 
-          <div className="flex-1 flex flex-col sm:flex-row items-center justify-around gap-6 py-4">
+          <div className="flex-1 flex flex-col md:flex-row items-center justify-around gap-6 py-4">
             {/* SVG Donut Chart */}
             <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -252,7 +252,7 @@ export default function InstagramPage() {
             </div>
 
             {/* Legends */}
-            <div className="space-y-3 font-text text-xs font-semibold w-full max-w-[200px]">
+            <div className="space-y-3 font-text text-xs font-semibold w-full md:max-w-[200px]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-md bg-indigo-650 shrink-0" />
@@ -319,7 +319,7 @@ export default function InstagramPage() {
               showLegend={false}
               showYAxis={false}
               startEndOnly={true}
-              className="h-48"
+              className="h-[220px] md:h-80"
             />
           </div>
         </div>

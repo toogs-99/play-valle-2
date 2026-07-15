@@ -263,56 +263,66 @@ Equipe Gestão de Atas.`}
 
       {/* Modal - E-mail Reader Demonstration */}
       {selectedMail && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center md:bg-slate-900/40 md:backdrop-blur-sm md:p-4">
           <div 
-            className="fixed inset-0" 
+            className="hidden md:block fixed inset-0" 
             onClick={() => setSelectedMail(null)} 
           />
-          <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] p-6 max-w-xl w-full shadow-lg relative animate-in fade-in zoom-in-95 duration-200 z-10">
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedMail(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-neutral-800 p-1.5 rounded-lg transition-all cursor-pointer"
-            >
-              <X size={16} />
-            </button>
+          <div className="bg-card w-full h-full md:h-auto md:max-w-xl md:rounded-[12px] md:border md:border-gray-200 md:dark:border-neutral-800 p-6 flex flex-col justify-between shadow-lg relative animate-in slide-in-from-right md:slide-in-from-none md:zoom-in-95 duration-300 z-10">
+            <div>
+              {/* Mobile Back Button */}
+              <button
+                onClick={() => setSelectedMail(null)}
+                className="md:hidden flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-semibold text-xs mb-6 bg-transparent border-0 cursor-pointer self-start"
+              >
+                &larr; Voltar
+              </button>
 
-            {/* Header / Meta */}
-            <div className="space-y-3 pb-4 border-b border-gray-200 dark:border-neutral-800">
-              <span className="text-[10px] uppercase font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
-                Visualização do Comunicado
-              </span>
-              <h3 className="text-base font-extrabold text-foreground tracking-tight leading-snug">
-                {selectedMail.subject}
-              </h3>
-              
-              <div className="space-y-1 text-xxs text-muted-foreground font-text">
-                <p>
-                  De: <span className="font-semibold text-foreground">Gestão de Atas &lt;comunicados@licitflow.com.br&gt;</span>
-                </p>
-                <p>
-                  Para: <span className="font-semibold text-foreground">{selectedMail.dest}</span>
-                </p>
-                <p>
-                  Data de envio: <span className="font-semibold text-foreground">{selectedMail.fullDate}</span>
+              {/* Desktop Close Button */}
+              <button
+                onClick={() => setSelectedMail(null)}
+                className="hidden md:block absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-neutral-800 p-1.5 rounded-lg transition-all cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+
+              {/* Header / Meta */}
+              <div className="space-y-3 pb-4 border-b border-gray-200 dark:border-neutral-800">
+                <span className="text-[10px] uppercase font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
+                  Visualização do Comunicado
+                </span>
+                <h3 className="text-base font-extrabold text-foreground tracking-tight leading-snug">
+                  {selectedMail.subject}
+                </h3>
+                
+                <div className="space-y-1 text-xxs text-muted-foreground font-text">
+                  <p>
+                    De: <span className="font-semibold text-foreground">Gestão de Atas &lt;comunicados@licitflow.com.br&gt;</span>
+                  </p>
+                  <p>
+                    Para: <span className="font-semibold text-foreground">{selectedMail.dest}</span>
+                  </p>
+                  <p>
+                    Data de envio: <span className="font-semibold text-foreground">{selectedMail.fullDate}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Email Body */}
+              <div className="py-5 max-h-[60vh] md:max-h-[300px] overflow-y-auto">
+                <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed font-text whitespace-pre-wrap">
+                  {selectedMail.body}
                 </p>
               </div>
             </div>
 
-            {/* Email Body */}
-            <div className="py-5 max-h-[300px] overflow-y-auto">
-              <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed font-text whitespace-pre-wrap">
-                {selectedMail.body}
-              </p>
-            </div>
-
             {/* Footer Notice */}
-            <div className="pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-between text-xxs text-muted-foreground font-text font-medium">
+            <div className="pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-between text-xxs text-muted-foreground font-text font-medium mt-auto">
               <span className="flex items-center gap-1">
                 <Eye size={12} className="text-emerald-600" />
                 Status: {selectedMail.open}
               </span>
-              <span>Demonstração de Leitura de E-mail</span>
+              <span>Demonstração de Leitura</span>
             </div>
           </div>
         </div>

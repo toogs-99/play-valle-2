@@ -233,7 +233,8 @@ export default function WhatsAppPage() {
           </h3>
         </div>
 
-        <div className="overflow-x-auto -mx-6">
+        {/* Desktop View Table */}
+        <div className="hidden md:block overflow-x-auto -mx-6">
           <table className="w-full border-collapse text-left text-xs font-text">
             <thead>
               <tr className="border-b border-gray-200 dark:border-neutral-800 bg-muted/20 text-slate-500 font-bold">
@@ -262,6 +263,35 @@ export default function WhatsAppPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View Cards */}
+        <div className="md:hidden space-y-3">
+          {[
+            { name: "Lembrete prazos junho", template: "lembrete_prazo_oficio", contacts: 12, delivered: 12, read: 11, date: "10/06/2026" },
+            { name: "Divulgação GREAL 002", template: "nova_ata_disponivel", contacts: 45, delivered: 44, read: 38, date: "05/06/2026" },
+            { name: "Confirmações maio", template: "confirmacao_adesao", contacts: 8, delivered: 8, read: 7, date: "28/05/2026" },
+          ].map((row, idx) => (
+            <div 
+              key={idx}
+              className="p-4 rounded-xl border border-gray-100 dark:border-neutral-800 bg-slate-50/30 dark:bg-neutral-900/20 space-y-2 text-xs"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground">{row.name}</span>
+                <span className="text-[10px] text-slate-450 font-medium">{row.date}</span>
+              </div>
+              <div className="text-[10px] text-slate-500">
+                Template: <span className="font-mono text-slate-700 dark:text-slate-300">{row.template}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-semibold pt-1 border-t border-slate-100 dark:border-neutral-850">
+                <span>{row.contacts} contatos</span>
+                <span>·</span>
+                <span className="text-emerald-600">{row.delivered} entregues</span>
+                <span>·</span>
+                <span className="text-[#1F2A5A] dark:text-indigo-400">{row.read} lidos</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
