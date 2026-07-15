@@ -1051,19 +1051,49 @@ Representante Autorizado`;
                   </>
                 )}
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Nome do Arquivo PDF
+                    Upload do Ofício (PDF ou Documento)
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: oficio_assinado_sul_minas.pdf"
-                    value={uploadFileName}
-                    onChange={(e) => setUploadFileName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-205 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
+                  <div className="border-2 border-dashed border-slate-200 hover:border-indigo-500 rounded-xl p-5 transition-all text-center cursor-pointer bg-slate-50/50 hover:bg-indigo-50/10 relative group flex flex-col items-center justify-center min-h-[90px]">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setUploadFileName(file.name);
+                        }
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                      required={!uploadFileName}
+                    />
+                    <Upload size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors mb-1.5" />
+                    <p className="text-xxs font-bold text-slate-700">
+                      {uploadFileName ? "Alterar arquivo selecionado" : "Clique para selecionar o arquivo"}
+                    </p>
+                    <p className="text-[9px] text-slate-400 mt-0.5">PDF ou documentos de texto</p>
+                  </div>
                 </div>
+
+                {uploadFileName && (
+                  <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Nome do Arquivo Selecionado
+                    </label>
+                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                      <FileText size={14} className="text-slate-400 shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Ex: oficio_assinado_sul_minas.pdf"
+                        value={uploadFileName}
+                        onChange={(e) => setUploadFileName(e.target.value)}
+                        className="w-full bg-transparent border-none p-0 text-slate-700 focus:outline-none focus:ring-0 font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"
