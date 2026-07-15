@@ -16,7 +16,10 @@ import {
   AlertTriangle,
   User,
   LogOut,
-  HelpCircle
+  HelpCircle,
+  Camera,
+  MessageSquare,
+  Mail
 } from "lucide-react";
 
 interface SidebarItem {
@@ -62,6 +65,21 @@ export default function DashboardShell({
       badgeType: "warning",
     },
     {
+      name: "Instagram",
+      href: "/instagram",
+      icon: Camera,
+    },
+    {
+      name: "WhatsApp",
+      href: "/whatsapp",
+      icon: MessageSquare,
+    },
+    {
+      name: "E-mails",
+      href: "/emails",
+      icon: Mail,
+    },
+    {
       name: "Configurações",
       href: "/configuracoes",
       icon: Settings,
@@ -94,15 +112,12 @@ export default function DashboardShell({
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-slate-200 bg-slate-50">
         {/* Brand Header */}
         <div className="flex h-16 items-center px-6 border-b border-slate-100">
-          <Link href="/alertas" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white shadow-md shadow-indigo-100 group-hover:scale-105 transition-transform duration-200">
-              <TrendingUp size={20} className="stroke-[2.5]" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-xs text-indigo-600 uppercase tracking-wider leading-none">
-                Gestão de Atas
-              </span>
-            </div>
+          <Link href="/alertas" className="flex items-center group w-full">
+            <img 
+              src="/logo.png" 
+              alt="Esporte Valle" 
+              className="max-h-12 w-auto object-contain transition-transform duration-200 group-hover:scale-[1.02]" 
+            />
           </Link>
         </div>
 
@@ -194,14 +209,11 @@ export default function DashboardShell({
             </div>
 
             <div className="flex h-12 items-center px-6 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-md">
-                  <TrendingUp size={18} />
-                </div>
-                <span className="font-extrabold text-xs text-indigo-600 uppercase tracking-wider">
-                  Gestão de Atas
-                </span>
-              </div>
+              <img 
+                src="/logo.png" 
+                alt="Esporte Valle" 
+                className="max-h-9 w-auto object-contain" 
+              />
             </div>
 
             <div className="mt-5 flex-1 h-0 overflow-y-auto px-4">
@@ -287,7 +299,7 @@ export default function DashboardShell({
 
             {/* Notifications Icon */}
             <button className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl border border-slate-200/50 transition-all">
-              <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+              <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-[#E97826] ring-2 ring-white" />
               <Bell size={18} />
             </button>
 

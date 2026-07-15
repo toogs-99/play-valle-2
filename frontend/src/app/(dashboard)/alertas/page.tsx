@@ -10,7 +10,8 @@ import {
   Calendar,
   ChevronRight,
   UserCheck,
-  Building
+  Building,
+  Info
 } from "lucide-react";
 
 export default function AlertasPage() {
@@ -58,23 +59,16 @@ export default function AlertasPage() {
           <p className="text-muted-foreground text-xs mt-1.5 font-text">
             Monitore prazos de reserva de cotas vencidos e o andamento de envio dos ofícios dos representantes.
           </p>
-        </div>
-        
-        {/* Quick Filter Info Tag */}
-        <div className="flex gap-2 text-xxs font-semibold bg-card border border-border rounded-xl p-1.5 shadow-sm self-start">
-          <span className="bg-destructive/10 text-destructive border border-destructive/20 px-2.5 py-1 rounded-lg">
-            {prazosVencidos.length} Prazos Vencidos
-          </span>
-          <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2.5 py-1 rounded-lg">
-            {aguardandoOficio.length} Aguardando Ofício
-          </span>
+          <p className="text-muted-foreground/80 text-xxs mt-1.5 font-text font-medium">
+            {atas.length} {atas.length === 1 ? "ata monitorada" : "atas monitoradas"} · {autorizacoes.length} {autorizacoes.length === 1 ? "adesão aprovada" : "adesões aprovadas"}
+          </p>
         </div>
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl animate-fade-in-slide-down [animation-delay:100ms]">
         {/* Card 1: Vencidos */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
@@ -85,13 +79,10 @@ export default function AlertasPage() {
               </h3>
             </div>
           </div>
-          <p className="text-[10px] text-destructive font-medium mt-3 flex items-center gap-1 font-text">
-            Ação imediata recomendada
-          </p>
         </div>
 
         {/* Card 2: Aguardando Ofício */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 p-6 rounded-[12px] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
           <div className="flex justify-between items-start">
             <div>
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
@@ -102,43 +93,6 @@ export default function AlertasPage() {
               </h3>
             </div>
           </div>
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-3 flex items-center gap-1 font-text">
-            Representantes em prazo regulamentar
-          </p>
-        </div>
-
-        {/* Card 3: Total Atas */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-                Atas Monitoradas
-              </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
-                {atas.length}
-              </h3>
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground font-medium mt-3 font-text">
-            Atas ativas em gerenciamento
-          </p>
-        </div>
-
-        {/* Card 4: Total Autorizações */}
-        <div className="bg-card border border-border p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 relative overflow-hidden group">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-                Adesões Aprovadas
-              </span>
-              <h3 className="text-3xl font-black text-foreground mt-1 tracking-tight font-display">
-                {autorizacoes.length}
-              </h3>
-            </div>
-          </div>
-          <p className="text-[10px] text-emerald-600 font-medium mt-3 font-text">
-            Histórico acumulado de adesão
-          </p>
         </div>
       </div>
 
@@ -146,20 +100,23 @@ export default function AlertasPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in-slide-up [animation-delay:200ms]">
         
         {/* Left Side: Prazos Expirados List */}
-        <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-300">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] shadow-sm flex flex-col hover:shadow-md transition-shadow duration-300 relative">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-neutral-800 bg-muted/30 flex items-center justify-between rounded-t-[12px]">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
               <h3 className="font-bold text-sm text-foreground font-display">
                 Prazos Expirados (Sem Envio de Ofício)
               </h3>
+              <div className="relative group/tooltip flex items-center">
+                <Info size={14} className="text-muted-foreground hover:text-foreground cursor-help transition-colors" />
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 text-[10px] rounded-lg shadow-md opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity duration-200 z-50 text-center font-normal font-text leading-normal">
+                  Os prazos expiram automaticamente se o ofício não for anexado em até 10 dias úteis.
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] bg-destructive/10 border border-destructive/20 text-destructive px-2 py-0.5 rounded-full font-semibold font-text">
-              {prazosVencidos.length} Pendências
-            </span>
           </div>
 
-          <div className="divide-y divide-border flex-1">
+          <div className="divide-y divide-gray-200 dark:divide-neutral-800 flex-1">
             {prazosVencidos.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground space-y-3">
                 <UserCheck size={24} className="mx-auto text-muted-foreground/60" />
@@ -167,65 +124,54 @@ export default function AlertasPage() {
               </div>
             ) : (
               prazosVencidos.map((prazo) => (
-                <div
+                <button
                   key={prazo.id}
-                  className="p-5 flex items-start justify-between hover:bg-muted/40 transition-colors group"
+                  onClick={() => router.push(`/atas/${prazo.ataId}`)}
+                  className="w-full px-6 py-5 flex items-center justify-between hover:bg-muted/30 active:bg-muted/50 transition-colors group text-left border-0 bg-transparent cursor-pointer last:rounded-b-[12px]"
                 >
                   <div className="space-y-1">
-                    <h4 className="font-bold text-sm text-foreground font-text">
+                    <h4 className="font-semibold text-sm text-foreground font-text">
                       {prazo.name}
                     </h4>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xxs text-muted-foreground font-text">
-                      <span className="text-foreground font-semibold">{prazo.ataName}</span>
-                      <span>•</span>
+                    <div className="flex flex-wrap items-center gap-x-1.5 text-xxs text-muted-foreground font-text leading-relaxed">
+                      <span>{prazo.ataName}</span>
+                      <span>·</span>
                       <span>{prazo.region}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-0.5">
+                      <span>·</span>
+                      <span className="text-destructive font-semibold flex items-center gap-0.5 whitespace-nowrap">
                         <Calendar size={10} />
-                        Limite era: {prazo.waitingDeadline}
+                        Venceu em {prazo.waitingDeadline}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className="text-xxs px-2.5 py-1 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 font-semibold font-text">
-                      Expirado
-                    </span>
-                    <button
-                      onClick={() => router.push(`/atas/${prazo.ataId}`)}
-                      className="text-[10px] text-primary font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-all duration-200"
-                    >
-                      Ver na Ata
-                      <ChevronRight size={10} />
-                    </button>
+                  <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0 ml-4">
+                    <ChevronRight size={16} />
                   </div>
-                </div>
+                </button>
               ))
             )}
-          </div>
-          
-          <div className="p-4 border-t border-border bg-muted/10 text-center">
-            <p className="text-[10px] text-muted-foreground font-medium font-text">
-              Os prazos expiram automaticamente se o ofício não for anexado em até 10 dias úteis.
-            </p>
           </div>
         </div>
 
         {/* Right Side: Aguardando Envio de Ofício List */}
-        <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow duration-300">
-          <div className="px-6 py-4 border-b border-border bg-muted/30 flex items-center justify-between">
+        <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] shadow-sm flex flex-col hover:shadow-md transition-shadow duration-300 relative">
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-neutral-800 bg-muted/30 flex items-center justify-between rounded-t-[12px]">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               <h3 className="font-bold text-sm text-foreground font-display">
                 Aguardando Envio de Ofício (Em Prazo)
               </h3>
+              <div className="relative group/tooltip flex items-center">
+                <Info size={14} className="text-muted-foreground hover:text-foreground cursor-help transition-colors" />
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 text-[10px] rounded-lg shadow-md opacity-0 pointer-events-none group-hover/tooltip:opacity-100 transition-opacity duration-200 z-50 text-center font-normal font-text leading-normal">
+                  Representantes com reservas ativas e aguardando anexação de documentos formais de adesão.
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold font-text">
-              {aguardandoOficio.length} Em Aguardo
-            </span>
           </div>
 
-          <div className="divide-y divide-border flex-1">
+          <div className="divide-y divide-gray-200 dark:divide-neutral-800 flex-1">
             {aguardandoOficio.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground space-y-3">
                 <Clock size={24} className="mx-auto text-muted-foreground/60" />
@@ -233,55 +179,40 @@ export default function AlertasPage() {
               </div>
             ) : (
               aguardandoOficio.map((oficio) => (
-                <div
+                <button
                   key={oficio.id}
-                  className="p-5 flex items-start justify-between hover:bg-muted/40 transition-colors group"
+                  onClick={() => router.push(`/atas/${oficio.ataId}`)}
+                  className="w-full px-6 py-5 flex items-center justify-between hover:bg-muted/30 active:bg-muted/50 transition-colors group text-left border-0 bg-transparent cursor-pointer last:rounded-b-[12px]"
                 >
                   <div className="space-y-1">
-                    <h4 className="font-bold text-sm text-foreground font-text">
+                    <h4 className="font-semibold text-sm text-foreground font-text">
                       {oficio.name}
                     </h4>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xxs text-muted-foreground font-text">
-                      <span className="text-foreground font-semibold">{oficio.ataName}</span>
-                      <span>•</span>
+                    <div className="flex flex-wrap items-center gap-x-1.5 text-xxs text-muted-foreground font-text leading-relaxed">
+                      <span>{oficio.ataName}</span>
+                      <span>·</span>
                       <span>{oficio.region}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-0.5">
+                      <span>·</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-0.5 whitespace-nowrap">
                         <Send size={10} />
-                        Prazo Limite: {oficio.waitingDeadline}
+                        Prazo: {oficio.waitingDeadline}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className="text-xxs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-450 border border-amber-500/20 font-semibold flex items-center gap-1 font-text">
-                      <Clock size={10} />
-                      Em prazo
-                    </span>
-                    <button
-                      onClick={() => router.push(`/atas/${oficio.ataId}`)}
-                      className="text-[10px] text-muted-foreground hover:text-foreground font-semibold flex items-center gap-0.5 transition-colors"
-                    >
-                      Acessar Ata
-                      <ChevronRight size={10} />
-                    </button>
+                  <div className="flex items-center gap-1 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0 ml-4">
+                    <ChevronRight size={16} />
                   </div>
-                </div>
+                </button>
               ))
             )}
-          </div>
-          
-          <div className="p-4 border-t border-border bg-muted/10 text-center">
-            <p className="text-[10px] text-muted-foreground font-medium font-text">
-              Representantes com reservas ativas e aguardando anexação de documentos formais de adesão.
-            </p>
           </div>
         </div>
 
       </div>
 
       {/* Info Notice Box */}
-      <div className="p-5 rounded-[var(--radius)] bg-primary text-primary-foreground flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md relative overflow-hidden animate-fade-in-slide-up [animation-delay:300ms] group/notice">
+      <div className="p-6 rounded-[12px] bg-primary text-primary-foreground flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md relative overflow-hidden animate-fade-in-slide-up [animation-delay:300ms] group/notice">
         <div className="absolute -right-4 -bottom-10 w-40 h-40 bg-background/10 rounded-full pointer-events-none transition-transform group-hover/notice:scale-105 duration-500" />
         <div className="space-y-1 relative z-10">
           <h4 className="text-sm font-bold flex items-center gap-1.5 font-display">

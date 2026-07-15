@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from "react";
 import {
   ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -46,6 +46,28 @@ const CustomTooltipReporter = ({
   return null;
 };
 
+const translateMonth = (value: string) => {
+  if (typeof value !== "string") return value;
+  const match = value.match(/^([A-Za-z]+)\s+\d+/);
+  if (!match) return value;
+  const month = match[1].toLowerCase();
+  switch (month) {
+    case "jan": return "Jan";
+    case "feb": return "Fev";
+    case "mar": return "Mar";
+    case "apr": return "Abr";
+    case "may": return "Mai";
+    case "jun": return "Jun";
+    case "jul": return "Jul";
+    case "aug": return "Ago";
+    case "sep": return "Set";
+    case "oct": return "Out";
+    case "nov": return "Nov";
+    case "dec": return "Dez";
+    default: return value;
+  }
+};
+
 export function LineChart({
   data,
   index,
@@ -66,15 +88,10 @@ export function LineChart({
     return <div className={cn("w-full h-48 bg-muted/5 rounded-lg border animate-pulse", className)} />;
   }
 
-  // Determine ticks to show if startEndOnly is true
-  const ticks = startEndOnly && data.length > 0 
-    ? [data[0][index], data[data.length - 1][index]] 
-    : undefined;
-
   // Curated color list using variables of our CSS variables
   const categoryColors = [
     "var(--primary)",
-    "var(--ring)",
+    "var(--accent)",
     "oklch(0.577 0.245 27.325)", // destructive red
     "oklch(0.769 0.188 70.08)" // warning/amber equivalent
   ];
@@ -82,7 +99,7 @@ export function LineChart({
   return (
     <div className={cn("w-full", className)}>
       <ResponsiveContainer width="100%" height="100%">
-        <RechartsLineChart
+        <AreaChart
           data={data}
           margin={{
             top: 5,
@@ -91,6 +108,12 @@ export function LineChart({
             bottom: 5,
           }}
         >
+          <defs>
+            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid 
             strokeDasharray="3 3" 
             vertical={false} 
@@ -100,30 +123,57 @@ export function LineChart({
           
           <XAxis
             dataKey={index}
-            ticks={ticks}
-            interval={startEndOnly ? "preserveStartEnd" : "preserveEnd"}
             stroke="var(--muted-foreground)"
             fontSize={11}
             tickLine={false}
             axisLine={false}
             dy={8}
             style={{ opacity: 0.8 }}
+            tickFormatter={translateMonth}
           />
 
           <YAxis
-            hide={!showYAxis}
             stroke="var(--muted-foreground)"
-            fontSize={11}
+            fontSize={10}
             tickLine={false}
             axisLine={false}
-            dx={-8}
-            style={{ opacity: 0.8 }}
+            dx={-4}
+            width={35}
+            style={{ opacity: 0.6 }}
+            tickCount={4}
+            tickFormatter={(val) => {
+              if (val >= 1000) {
+                return `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k`;
+              }
+              return val;
+            }}
           />
 
           <Tooltip
-            content={
-              <CustomTooltipReporter tooltipCallback={tooltipCallback} />
-            }
+            content={({ active, payload, label }) => {
+              return (
+                <>
+                  <CustomTooltipReporter 
+                    active={active} 
+                    payload={payload} 
+                    label={label} 
+                    tooltipCallback={tooltipCallback} 
+                  />
+                  {active && payload && payload.length && (
+                    <div className="bg-neutral-900 text-neutral-100 p-2 rounded-lg shadow-md border-0 text-[10px] font-text leading-normal z-50">
+                      <p className="font-bold">{translateMonth(label)}</p>
+                      <p className="font-semibold mt-0.5 text-indigo-400">
+                        {typeof payload[0].value === "number" && payload[0].value > 500
+                          ? payload[0].name === "clicks" || payload[0].name === "followers" || payload[0].value === 4827 || payload[0].value === 3400 || payload[0].value < 5000
+                            ? `${payload[0].value.toLocaleString("pt-BR")}`
+                            : `R$ ${Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(payload[0].value)}`
+                          : payload[0].value}
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            }}
           />
 
           {showLegend && (
@@ -141,13 +191,18 @@ export function LineChart({
           )}
 
           {categories.map((category, idx) => (
-            <Line
+            <Area
               key={category}
               type="monotone"
               dataKey={category}
               stroke={categoryColors[idx % categoryColors.length]}
               strokeWidth={2.5}
-              dot={false}
+              fill="url(#chartGradient)"
+              dot={{
+                r: 3.5,
+                strokeWidth: 0,
+                fill: categoryColors[idx % categoryColors.length]
+              }}
               activeDot={{
                 r: 5,
                 strokeWidth: 0,
@@ -156,7 +211,7 @@ export function LineChart({
               connectNulls
             />
           ))}
-        </RechartsLineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

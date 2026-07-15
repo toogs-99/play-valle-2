@@ -450,7 +450,7 @@ Representante Autorizado`;
                           onClick={() => setSelectedRepName(name)}
                           className={`w-full text-left p-4 transition-all flex items-start justify-between gap-3 ${
                             isSelected
-                              ? "bg-indigo-50/60 border-l-4 border-indigo-600"
+                              ? "bg-indigo-50/60 border-l-4 border-[#E97826]"
                               : "hover:bg-slate-50"
                           }`}
                         >

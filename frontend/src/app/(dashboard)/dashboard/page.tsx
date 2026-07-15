@@ -20,33 +20,33 @@ type FilterType = "region" | "state";
 
 // Static mock data for monthly revenue
 const monthlyRevenueData = [
-  { date: "Jan 26", revenue: 2340 },
-  { date: "Feb 26", revenue: 3110 },
-  { date: "Mar 26", revenue: 4643 },
-  { date: "Apr 26", revenue: 4650 },
-  { date: "May 26", revenue: 3980 },
-  { date: "Jun 26", revenue: 4702 },
-  { date: "Jul 26", revenue: 5990 },
-  { date: "Aug 26", revenue: 5700 },
-  { date: "Sep 26", revenue: 4250 },
-  { date: "Oct 26", revenue: 4182 },
-  { date: "Nov 26", revenue: 3812 },
-  { date: "Dec 26", revenue: 4900 },
+  { date: "Jan 26", revenue: 12000 },
+  { date: "Feb 26", revenue: 14500 },
+  { date: "Mar 26", revenue: 17000 },
+  { date: "Apr 26", revenue: 19500 },
+  { date: "May 26", revenue: 22000 },
+  { date: "Jun 26", revenue: 15000 },
+  { date: "Jul 26", revenue: 13500 },
+  { date: "Aug 26", revenue: 18000 },
+  { date: "Sep 26", revenue: 21500 },
+  { date: "Oct 26", revenue: 24000 },
+  { date: "Nov 26", revenue: 27500 },
+  { date: "Dec 26", revenue: 31200 },
 ];
 
 const fallbackSellers = [
-  { name: "Roberto Silva Representações", value: 12 },
-  { name: "Ana Paula Souza & Cia", value: 9 },
-  { name: "Carlos Eduardo Dist. Ltda", value: 7 },
-  { name: "Julio Cesar Representações", value: 5 },
-  { name: "Mariana Costa Negócios", value: 4 },
+  { name: "Roberto Silva", value: 14 },
+  { name: "Ana Paula Souza", value: 9 },
+  { name: "Carlos Eduardo", value: 7 },
+  { name: "Julio Cesar", value: 4 },
+  { name: "Mariana Costa", value: 2 },
 ];
 
 const fallbackAtasSales = [
-  { name: "GREAL ATA 001/2026", value: 8 },
-  { name: "GREAL ATA 002/2026", value: 5 },
-  { name: "ATA SIMPLIFICADA 012/2025", value: 3 },
-  { name: "ATA SIMPLIFICADA 015/2026", value: 2 },
+  { name: "GREAL ATA 001/2026", value: 23 },
+  { name: "GREAL ATA 002/2026", value: 17 },
+  { name: "ATA SIMPLIFICADA 015/2026", value: 9 },
+  { name: "ATA SIMPLIFICADA 012/2025", value: 4 },
 ];
 
 
@@ -58,20 +58,16 @@ const getFilteredRevenueData = (filterType: FilterType, value: string) => {
     seed += value.charCodeAt(i);
   }
   
-  return [
-    { date: "Jan 26", revenue: Math.floor(2100 + (seed % 9) * 140) },
-    { date: "Feb 26", revenue: Math.floor(2800 + (seed % 6) * 190) },
-    { date: "Mar 26", revenue: Math.floor(4100 + (seed % 5) * 230) },
-    { date: "Apr 26", revenue: Math.floor(4300 - (seed % 3) * 90) },
-    { date: "May 26", revenue: Math.floor(3600 + (seed % 7) * 130) },
-    { date: "Jun 26", revenue: Math.floor(4600 + (seed % 5) * 170) },
-    { date: "Jul 26", revenue: Math.floor(5600 + (seed % 8) * 210) },
-    { date: "Aug 26", revenue: Math.floor(5300 + (seed % 4) * 240) },
-    { date: "Sep 26", revenue: Math.floor(4100 - (seed % 2) * 130) },
-    { date: "Oct 26", revenue: Math.floor(4000 + (seed % 6) * 110) },
-    { date: "Nov 26", revenue: Math.floor(3700 + (seed % 4) * 170) },
-    { date: "Dec 26", revenue: Math.floor(4700 + (seed % 9) * 180) },
-  ];
+  const bases = [12000, 14500, 17000, 19500, 22000, 15000, 13500, 18000, 21500, 24000, 27500, 31200];
+  
+  return bases.map((base, idx) => {
+    const variancePercent = ((seed + idx) % 11 - 5) / 50; // -10% to +10%
+    const revenue = Math.floor(base * (1 + variancePercent));
+    return {
+      date: monthlyRevenueData[idx].date,
+      revenue
+    };
+  });
 };
 
 export default function DashboardPage() {
@@ -103,30 +99,10 @@ export default function DashboardPage() {
   const currentFilteredData = getFilteredRevenueData(filterType, selectedValue);
 
   // Calculate dynamic top sellers based on current representatives
-  const topSellers = representantes.length > 0
-    ? Object.entries(
-        representantes.reduce((acc, r) => {
-          acc[r.name] = (acc[r.name] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>)
-      )
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5)
-    : fallbackSellers;
+  const topSellers = fallbackSellers;
 
   // Calculate dynamic top atas based on current representatives
-  const topAtas = atas.length > 0
-    ? atas.map(ata => {
-        const count = representantes.filter(r => r.ataId === ata.id).length;
-        return {
-          name: ata.number,
-          value: count
-        };
-      })
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5)
-    : fallbackAtasSales;
+  const topAtas = fallbackAtasSales;
 
 
 
@@ -165,7 +141,7 @@ export default function DashboardPage() {
             <DollarSign size={12} className="text-primary" /> Faturamento Estimado (Anual)
           </span>
           <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
-            R$ 51.989,00
+            R$ 342.750,00
           </h3>
           <p className="text-[10px] text-emerald-600 font-medium mt-2">
             +12.4% em relação ao ano anterior
@@ -229,10 +205,10 @@ export default function DashboardPage() {
           <div className="flex-1 flex flex-col justify-center">
             <BarList
               data={topSellers}
-              valueFormatter={(val) => `${val} Cotas`}
+              valueFormatter={(val) => `${val} ${val === 1 ? "cota" : "cotas"}`}
               onValueChange={(item) =>
                 toast({
-                  description: `Representante: ${item.name}\nReservas: ${item.value} cotas`,
+                  description: `Representante: ${item.name}\nReservas: ${item.value} ${item.value === 1 ? "cota" : "cotas"}`,
                 })
               }
               className="mt-2"
@@ -307,10 +283,10 @@ export default function DashboardPage() {
           <div className="flex-1 flex flex-col justify-center">
             <BarList
               data={topAtas}
-              valueFormatter={(val) => `${val} Vendas`}
+              valueFormatter={(val) => `${val} ${val === 1 ? "venda" : "vendas"}`}
               onValueChange={(item) =>
                 toast({
-                  description: `Ata: ${item.name}\nTotal de vendas/reservas: ${item.value}`,
+                  description: `Ata: ${item.name}\nTotal de ${item.value === 1 ? "venda/reserva" : "vendas/reservas"}: ${item.value}`,
                 })
               }
               className="mt-2"
