@@ -15,15 +15,67 @@ import {
 
 interface EmailItem {
   subject: string;
-  dest: string;
-  open: string;
+  dest?: string;
+  from?: string;
+  open?: string;
+  status?: string;
   date: string;
   fullDate: string;
   body: string;
+  isReceived?: boolean;
 }
 
 export default function EmailsPage() {
   const [selectedMail, setSelectedMail] = useState<EmailItem | null>(null);
+  const [activeHistoryTab, setActiveHistoryTab] = useState<"sent" | "received">("sent");
+
+  const mockReceivedEmails: EmailItem[] = [
+    {
+      subject: "Ofício de Adesão Assinado — GREAL ATA 001/2026",
+      from: "Roberto Silva <roberto@robertosilva.com.br>",
+      date: "12/06",
+      fullDate: "12/06/2026 às 15:40",
+      status: "Lido",
+      body: `Prezada equipe do Esporte Valle,
+      
+Segue em anexo o Ofício de Adesão devidamente assinado para a nossa reserva de cota referente à GREAL ATA 001/2026 para a região do Vale do Paraíba - SP.
+
+Ficamos no aguardo da homologação e da emissão da Autorização de Adesão.
+
+Atenciosamente,
+Roberto Silva`,
+      isReceived: true
+    },
+    {
+      subject: "Dúvida sobre prazo de homologação",
+      from: "Ana Paula Souza <contato@anapaulasouza.com.br>",
+      date: "10/06",
+      fullDate: "10/06/2026 às 11:20",
+      status: "Lido",
+      body: `Olá, bom dia!
+      
+Gostaria de saber se o nosso ofício enviado no dia 06/06 já foi analisado e quando teremos a liberação do certificado de autorização.
+
+Obrigada,
+Ana Paula`,
+      isReceived: true
+    },
+    {
+      subject: "Solicitação de cadastro de novo representante",
+      from: "Carlos Eduardo <carlos@cedistribuicao.com.br>",
+      date: "05/06",
+      fullDate: "05/06/2026 às 09:45",
+      status: "Não Lido",
+      body: `Prezados,
+      
+Estamos tentando cadastrar um novo vendedor para a região de Litoral Norte - SP na ATA SIMPLIFICADA 012/2025, mas consta que o prazo do vendedor atual está pendente.
+Poderiam nos informar se há previsão de liberação da vaga?
+
+Cordialmente,
+Carlos Eduardo`,
+      isReceived: true
+    }
+  ];
 
   const mockEmails: EmailItem[] = [
     {
@@ -214,48 +266,109 @@ Equipe Gestão de Atas.`}
           </form>
         </div>
 
-        {/* Right Column: HISTÓRICO / Últimos Envios */}
+        {/* Right Column: HISTÓRICO / Envios e Recebidos */}
         <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] shadow-sm flex flex-col hover:shadow-md transition-shadow duration-300">
-          <div className="px-6 py-5 border-b border-gray-200 dark:border-neutral-800 bg-muted/30 flex items-center justify-between rounded-t-[12px]">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-neutral-800 bg-muted/30 flex items-center justify-between rounded-t-[12px]">
             <div className="flex flex-col">
               <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
                 Histórico
               </span>
               <h3 className="font-bold text-sm text-foreground font-display mt-0.5">
-                Últimos Envios Realizados
+                Comunicações
               </h3>
+            </div>
+            
+            <div className="flex bg-slate-100 dark:bg-neutral-800 p-0.5 rounded-lg border border-gray-200/50 dark:border-neutral-800/50">
+              <button
+                onClick={() => setActiveHistoryTab("sent")}
+                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  activeHistoryTab === "sent"
+                    ? "bg-white dark:bg-neutral-700 text-slate-800 dark:text-neutral-100 shadow-sm"
+                    : "text-slate-400 dark:text-slate-500 hover:text-slate-650"
+                }`}
+              >
+                Enviados
+              </button>
+              <button
+                onClick={() => setActiveHistoryTab("received")}
+                className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all relative ${
+                  activeHistoryTab === "received"
+                    ? "bg-white dark:bg-neutral-700 text-slate-800 dark:text-neutral-100 shadow-sm"
+                    : "text-slate-400 dark:text-slate-500 hover:text-slate-650"
+                }`}
+              >
+                Recebidos
+                {mockReceivedEmails.some(m => m.status === "Não Lido") && (
+                  <span className="absolute top-1 right-1 h-1.5 w-1.5 bg-rose-500 rounded-full" />
+                )}
+              </button>
             </div>
           </div>
 
           <div className="divide-y divide-gray-200 dark:divide-neutral-800 flex-1">
-            {mockEmails.map((mail, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedMail(mail)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/30 active:bg-muted/50 transition-colors group cursor-pointer text-left border-0 bg-transparent last:rounded-b-[12px]"
-              >
-                <div className="space-y-1 min-w-0 pr-4">
-                  <h4 className="font-semibold text-xs text-foreground font-text truncate">
-                    {mail.subject}
-                  </h4>
-                  <div className="flex items-center gap-2 text-xxs text-muted-foreground font-text">
-                    <span className="flex items-center gap-0.5 text-slate-500 font-medium">
-                      <Users size={10} />
-                      {mail.dest.split(" — ")[0]}
-                    </span>
-                    <span>·</span>
-                    <span className="text-emerald-600 font-semibold">{mail.open}</span>
+            {activeHistoryTab === "sent" ? (
+              mockEmails.map((mail, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedMail(mail)}
+                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/30 active:bg-muted/50 transition-colors group cursor-pointer text-left border-0 bg-transparent last:rounded-b-[12px]"
+                >
+                  <div className="space-y-1 min-w-0 pr-4">
+                    <h4 className="font-semibold text-xs text-foreground font-text truncate">
+                      {mail.subject}
+                    </h4>
+                    <div className="flex items-center gap-2 text-xxs text-muted-foreground font-text">
+                      <span className="flex items-center gap-0.5 text-slate-500 font-medium">
+                        <Users size={10} />
+                        {mail.dest?.split(" — ")[0]}
+                      </span>
+                      <span>·</span>
+                      <span className="text-emerald-600 font-semibold">{mail.open}</span>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xxs text-slate-450 font-medium font-text">
-                    {mail.date}
-                  </span>
-                  <ChevronRight size={14} className="text-slate-400 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </button>
-            ))}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xxs text-slate-450 font-medium font-text">
+                      {mail.date}
+                    </span>
+                    <ChevronRight size={14} className="text-slate-400 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
+              ))
+            ) : (
+              mockReceivedEmails.map((mail, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedMail(mail)}
+                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/30 active:bg-muted/50 transition-colors group cursor-pointer text-left border-0 bg-transparent last:rounded-b-[12px]"
+                >
+                  <div className="space-y-1 min-w-0 pr-4">
+                    <div className="flex items-center gap-1.5">
+                      <h4 className={`font-semibold text-xs font-text truncate ${mail.status === "Não Lido" ? "text-indigo-950 font-bold" : "text-foreground"}`}>
+                        {mail.subject}
+                      </h4>
+                      {mail.status === "Não Lido" && (
+                        <span className="h-1.5 w-1.5 bg-indigo-650 rounded-full" />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xxs text-muted-foreground font-text">
+                      <span className="flex items-center gap-0.5 text-slate-500 font-medium truncate max-w-[150px]">
+                        De: {mail.from?.split(" <")[0]}
+                      </span>
+                      <span>·</span>
+                      <span className={`${mail.status === "Não Lido" ? "text-indigo-650 font-bold" : "text-slate-400"}`}>{mail.status}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xxs text-slate-450 font-medium font-text">
+                      {mail.date}
+                    </span>
+                    <ChevronRight size={14} className="text-slate-400 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -289,7 +402,7 @@ Equipe Gestão de Atas.`}
               {/* Header / Meta */}
               <div className="space-y-3 pb-4 border-b border-gray-200 dark:border-neutral-800">
                 <span className="text-[10px] uppercase font-bold text-indigo-650 bg-indigo-50 border border-indigo-150 px-2 py-0.5 rounded-md dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
-                  Visualização do Comunicado
+                  {selectedMail.isReceived ? "Visualização do E-mail Recebido" : "Visualização do Comunicado Enviado"}
                 </span>
                 <h3 className="text-base font-extrabold text-foreground tracking-tight leading-snug">
                   {selectedMail.subject}
@@ -297,13 +410,13 @@ Equipe Gestão de Atas.`}
                 
                 <div className="space-y-1 text-xxs text-muted-foreground font-text">
                   <p>
-                    De: <span className="font-semibold text-foreground">Gestão de Atas &lt;comunicados@licitflow.com.br&gt;</span>
+                    De: <span className="font-semibold text-foreground">{selectedMail.isReceived ? selectedMail.from : "Gestão de Atas <comunicados@licitflow.com.br>"}</span>
                   </p>
                   <p>
-                    Para: <span className="font-semibold text-foreground">{selectedMail.dest}</span>
+                    Para: <span className="font-semibold text-foreground">{selectedMail.isReceived ? "Gestão de Atas <comunicados@licitflow.com.br>" : selectedMail.dest}</span>
                   </p>
                   <p>
-                    Data de envio: <span className="font-semibold text-foreground">{selectedMail.fullDate}</span>
+                    {selectedMail.isReceived ? "Data de recebimento: " : "Data de envio: "}<span className="font-semibold text-foreground">{selectedMail.fullDate}</span>
                   </p>
                 </div>
               </div>
@@ -319,10 +432,19 @@ Equipe Gestão de Atas.`}
             {/* Footer Notice */}
             <div className="pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-between text-xxs text-muted-foreground font-text font-medium mt-auto">
               <span className="flex items-center gap-1">
-                <Eye size={12} className="text-emerald-600" />
-                Status: {selectedMail.open}
+                {selectedMail.isReceived ? (
+                  <>
+                    <Mail size={12} className={selectedMail.status === "Não Lido" ? "text-amber-500" : "text-slate-400"} />
+                    Status: {selectedMail.status}
+                  </>
+                ) : (
+                  <>
+                    <Eye size={12} className="text-emerald-600" />
+                    Status: {selectedMail.open}
+                  </>
+                )}
               </span>
-              <span>Demonstração de Leitura</span>
+              <span>{selectedMail.isReceived ? "E-mail Recebido" : "Demonstração de Leitura"}</span>
             </div>
           </div>
         </div>
