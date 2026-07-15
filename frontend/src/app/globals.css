@@ -237,3 +237,13 @@
     font-family: var(--font-sans);
   }
 }
+
+@media (max-width: 640px) {
+  .text-3xl {
+    font-size: 1.5rem !important; /* 24px - equivalent to text-2xl */
+    line-height: 2rem !important;
+  }
+  .text-xxs {
+    font-size: 0.72rem !important; /* make small labels readable on mobile */
+  }
+}

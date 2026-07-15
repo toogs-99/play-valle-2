@@ -37,7 +37,32 @@ export default function DashboardShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const pathname = usePathname();
+
+  // Swipe gesture tracking state
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    if (isLeftSwipe) {
+      setSidebarOpen(false);
+    }
+  };
 
   const navigation: SidebarItem[] = [
     {
@@ -103,10 +128,12 @@ export default function DashboardShell({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 flex">
-      {/* Background decoration elements */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-50/50 flex overflow-x-hidden relative">
+      {/* Background decoration elements wrapper with overflow hidden to prevent horizontal scroll */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[100px]" />
+      </div>
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-20 border-r border-slate-200 bg-slate-50">
@@ -174,7 +201,7 @@ export default function DashboardShell({
 
             {/* Profile footer inside sidebar */}
             <button className="flex items-center w-full gap-2 p-2 rounded-md hover:bg-slate-100 transition-colors text-left">
-              <div className="h-8 w-8 rounded-lg bg-indigo-600 text-white font-semibold flex items-center justify-center text-xs shrink-0">
+              <div className="h-8 w-8 rounded-lg bg-indigo-650 text-white font-semibold flex items-center justify-center text-xs shrink-0">
                 VH
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -190,101 +217,141 @@ export default function DashboardShell({
         </div>
       </aside>
 
-      {/* Mobile Drawer (Sidebar on mobile) */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 md:hidden flex">
-          <div
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-            onClick={() => setSidebarOpen(false)}
-          />
-          <aside className="relative flex w-full max-w-xs flex-1 flex-col bg-white pt-5 pb-4 focus:outline-none z-50">
-            <div className="absolute top-0 right-0 -mr-12 pt-2">
-              <button
-                type="button"
-                className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <X className="h-6 w-6 text-white" />
-              </button>
-            </div>
+      {/* Mobile Drawer (Sidebar on mobile) with transition and swipe gestures */}
+      <div 
+        className={`fixed inset-0 z-40 md:hidden flex transition-opacity duration-300 ${
+          sidebarOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <div
+          className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 ${
+            sidebarOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setSidebarOpen(false)}
+        />
+        <aside 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className={`relative flex w-full max-w-xs flex-1 flex-col bg-white pt-5 pb-4 focus:outline-none z-50 transition-transform duration-300 ease-in-out transform ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="absolute top-0 right-0 -mr-12 pt-2">
+            <button
+              type="button"
+              className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white bg-slate-900/20 text-white"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </button>
+          </div>
 
-            <div className="flex h-12 items-center px-6 border-b border-slate-100 pb-4">
-              <img 
-                src="/logo.png" 
-                alt="Esporte Valle" 
-                className="max-h-9 w-auto object-contain" 
-              />
-            </div>
+          <div className="flex h-12 items-center px-6 border-b border-slate-100 pb-4">
+            <img 
+              src="/logo.png" 
+              alt="Esporte Valle" 
+              className="max-h-9 w-auto object-contain" 
+            />
+          </div>
 
-            <div className="mt-5 flex-1 h-0 overflow-y-auto px-4">
-              <nav className="space-y-1">
-                {navigation.map((item) => {
-                  const isActive = pathname.startsWith(item.href);
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center justify-between w-full p-2 rounded-md text-sm transition-colors group ${
-                        isActive
-                          ? "bg-slate-100 text-slate-900 font-medium"
-                          : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <item.icon
-                          size={16}
-                          className={`shrink-0 transition-colors ${
-                            isActive ? "text-slate-900" : "text-slate-500 group-hover:text-slate-900"
-                          }`}
-                        />
-                        <span className="truncate">{item.name}</span>
-                      </div>
-                      {item.badge && (
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-md leading-none flex items-center justify-center min-w-5 h-5 ${getBadgeClass(
-                            item.badgeType
-                          )}`}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          </aside>
-        </div>
-      )}
+          <div className="mt-5 flex-1 h-0 overflow-y-auto px-4">
+            <nav className="space-y-1">
+              {navigation.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`flex items-center justify-between w-full py-3 px-4 rounded-xl text-sm transition-colors group ${
+                      isActive
+                        ? "bg-slate-100 text-slate-900 font-semibold"
+                        : "text-slate-750 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <item.icon
+                        size={18}
+                        className={`shrink-0 transition-colors ${
+                          isActive ? "text-slate-900" : "text-slate-500 group-hover:text-slate-900"
+                        }`}
+                      />
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-md leading-none flex items-center justify-center min-w-5 h-5 ${getBadgeClass(
+                          item.badgeType
+                        )}`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+      </div>
 
       {/* Main Workspace Area */}
-      <div className="flex-1 md:pl-72 flex flex-col min-h-screen">
+      <div className="flex-1 md:pl-64 flex flex-col min-h-screen">
         {/* Header */}
         <header className="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-white/70 backdrop-blur-md border-b border-slate-200/80 justify-between items-center px-4 sm:px-6 md:px-8">
+          
+          {/* Mobile Search Overlay */}
+          {mobileSearchOpen && (
+            <div className="absolute inset-0 bg-white z-20 flex items-center px-4 gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
+              <Search size={18} className="text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar no sistema..."
+                autoFocus
+                className="w-full bg-transparent border-0 outline-none focus:outline-none focus:ring-0 text-sm text-slate-800 placeholder-slate-450"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button 
+                onClick={() => { setMobileSearchOpen(false); setSearchQuery(""); }}
+                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-550 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
+
           {/* Left Side: Mobile Menu Button & Dynamic Path Title */}
           <div className="flex items-center gap-4">
             <button
               type="button"
-              className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-750 bg-white hover:bg-slate-50 transition-colors"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu size={20} />
             </button>
-            <div className="hidden sm:block">
+            
+            {/* Desktop breadcrumb */}
+            <div className="hidden md:flex items-center gap-2">
               <h2 className="text-sm text-slate-450 font-medium">Dashboard</h2>
-            </div>
-            <div className="hidden sm:block text-slate-300">/</div>
-            <div>
+              <div className="text-slate-300">/</div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight">
                 {getPageTitle()}
               </h1>
             </div>
           </div>
 
+          {/* Centered Mobile Title */}
+          <div className="md:hidden absolute left-1/2 -translate-x-1/2 flex items-center">
+            <span className="font-bold text-sm text-slate-900 tracking-tight truncate max-w-[150px]">
+              {getPageTitle()}
+            </span>
+          </div>
+
           {/* Right Side Actions */}
-          <div className="flex items-center gap-4">
-            {/* Search Bar */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Desktop Search Bar */}
             <div className="hidden md:flex items-center relative w-64">
               <Search
                 size={16}
@@ -292,10 +359,18 @@ export default function DashboardShell({
               />
               <input
                 type="text"
-                placeholder="Buscar ata, item, rep..."
+                placeholder="Buscar ... "
                 className="w-full pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-450 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 focus:border-indigo-500/80 transition-all"
               />
             </div>
+
+            {/* Mobile Search Trigger */}
+            <button 
+              onClick={() => setMobileSearchOpen(true)}
+              className="md:hidden p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl border border-slate-200/50 transition-all"
+            >
+              <Search size={18} />
+            </button>
 
             {/* Notifications Icon */}
             <button className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl border border-slate-200/50 transition-all">
@@ -350,11 +425,59 @@ export default function DashboardShell({
           </div>
         </header>
 
-        {/* Content Wrapper */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 relative z-0">
+        {/* Content Wrapper - responsive bottom padding to clear the mobile nav bar */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8 relative z-0">
           {children}
         </main>
       </div>
+
+      {/* Bottom Navigation (Mobile Only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-slate-200 z-35 flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom,0px)] shadow-lg shadow-slate-100">
+        {[
+          { name: "Painel", href: "/dashboard", icon: TrendingUp },
+          { name: "Alertas", href: "/alertas", icon: Bell, badge: "4" },
+          { name: "Atas", href: "/atas", icon: FileText },
+          { name: "Mais", href: "#", icon: Menu, action: () => setSidebarOpen(true) }
+        ].map((item, idx) => {
+          const isActive = item.action ? false : pathname.startsWith(item.href);
+          const Icon = item.icon;
+          
+          return (
+            <button
+              key={idx}
+              onClick={item.action ? item.action : () => {}}
+              className="flex-1 flex flex-col items-center justify-center h-full relative"
+            >
+              {item.action ? (
+                <div className="flex flex-col items-center">
+                  <Icon size={18} className="text-slate-500" />
+                  <span className="text-[10px] font-semibold text-slate-500 mt-1">{item.name}</span>
+                </div>
+              ) : (
+                <Link href={item.href} className="flex flex-col items-center w-full h-full justify-center">
+                  <div className="relative">
+                    <Icon 
+                      size={18} 
+                      className={isActive ? "text-[#1F2A5A]" : "text-slate-500"} 
+                    />
+                    {item.badge && (
+                      <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[8px] font-bold h-3.5 w-3.5 rounded-full flex items-center justify-center">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-semibold mt-1 ${isActive ? "text-[#1F2A5A]" : "text-slate-500"}`}>
+                    {item.name}
+                  </span>
+                  {isActive && (
+                    <span className="absolute top-0 w-8 h-0.5 bg-[#E97826] rounded-full" />
+                  )}
+                </Link>
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
