@@ -46,10 +46,11 @@ const CustomTooltipReporter = ({
   return null;
 };
 
-const translateMonth = (value: string) => {
-  if (typeof value !== "string") return value;
-  const match = value.match(/^([A-Za-z]+)\s+\d+/);
-  if (!match) return value;
+const translateMonth = (value: any): string => {
+  if (value === undefined || value === null) return "";
+  const strVal = String(value);
+  const match = strVal.match(/^([A-Za-z]+)\s+\d+/);
+  if (!match) return strVal;
   const month = match[1].toLowerCase();
   switch (month) {
     case "jan": return "Jan";
@@ -64,7 +65,7 @@ const translateMonth = (value: string) => {
     case "oct": return "Out";
     case "nov": return "Nov";
     case "dec": return "Dez";
-    default: return value;
+    default: return strVal;
   }
 };
 
