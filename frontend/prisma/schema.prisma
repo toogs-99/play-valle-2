@@ -1,0 +1,397 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Papel {
+  vendedor
+  gestor_atas
+  financeiro
+  admin
+}
+
+enum StatusRepresentante {
+  waiting_letter
+  active
+  waitlist
+  expired
+}
+
+enum StatusOficio {
+  pending
+  approved
+  rejected
+}
+
+model Marca {
+  id   String @id @default(cuid())
+  nome String @unique
+
+  usuarios          UsuarioMarca[]
+  atas              Ata[]
+  representantes    Representante[]
+  oficios           Oficio[]
+  autorizacoes      AutorizacaoAdesao[]
+  integracaoMeta      IntegracaoMeta?
+  instagramMetricas   InstagramMetrica[]
+  integracaoWhatsapp  IntegracaoWhatsapp?
+  whatsappMetricas    WhatsappMetrica[]
+  whatsappTemplates   WhatsappTemplate[]
+  vendas              Venda[]
+  integracaoEmail     IntegracaoEmail?
+  emailsEnviados      EmailEnviado[]
+  avisos              Aviso[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("marcas")
+}
+
+model Usuario {
+  id        String @id @default(cuid())
+  nome      String
+  email     String @unique
+  senhaHash String
+
+  marcas        UsuarioMarca[]
+  avisosCriados Aviso[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+model UsuarioMarca {
+  usuarioId String
+  marcaId   String
+  papel     Papel
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  marca   Marca   @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([usuarioId, marcaId])
+  @@map("usuarios_marcas")
+}
+
+model Ata {
+  id          String  @id @default(cuid())
+  marcaId     String
+  orgao       String
+  numero      String
+  descricao   String?
+  valorAta    Decimal @default(0) @db.Decimal(12, 2)
+
+  marca          Marca           @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  representantes Representante[]
+  vendas         Venda[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([marcaId])
+  @@map("atas")
+}
+
+model Representante {
+  id              String              @id @default(cuid())
+  marcaId         String
+  ataId           String
+  nome            String
+  cidade          String
+  status          StatusRepresentante @default(waiting_letter)
+  waitingDeadline DateTime
+
+  marca   Marca    @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  ata     Ata      @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  oficios Oficio[]
+  vendas  Venda[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([marcaId])
+  @@index([ataId])
+  @@map("representantes")
+}
+
+model Oficio {
+  id                   String       @id @default(cuid())
+  marcaId              String
+  representanteId      String
+  status               StatusOficio @default(pending)
+  arquivoNomeOriginal  String
+  arquivoMimeType      String
+  arquivoBase64        String       @db.Text
+  sentAt               DateTime     @default(now())
+
+  marca          Marca              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  representante  Representante      @relation(fields: [representanteId], references: [id], onDelete: Cascade)
+  autorizacao    AutorizacaoAdesao?
+  venda          Venda?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([marcaId])
+  @@index([representanteId])
+  @@map("oficios")
+}
+
+model AutorizacaoAdesao {
+  id           String   @id @default(cuid())
+  marcaId      String
+  oficioId     String   @unique
+  numero       String   @unique
+  dataEmissao  DateTime @default(now())
+
+  marca  Marca  @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  oficio Oficio @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([marcaId])
+  @@map("autorizacoes_adesao")
+}
+
+enum StatusVenda {
+  pendente
+  pago
+  cancelado
+}
+
+// Criada automaticamente quando um Ofício é aprovado (ver
+// POST /api/oficios/[id]/aprovar), com o valor fixo da Ata correspondente.
+// Uma Venda por Ofício aprovado (oficioId único).
+model Venda {
+  id              String      @id @default(cuid())
+  marcaId         String
+  representanteId String
+  ataId           String // redundante com representante.ataId, mas útil para consulta direta
+  oficioId        String      @unique
+  valor           Decimal     @db.Decimal(12, 2)
+  status          StatusVenda @default(pendente)
+  criadaEm        DateTime    @default(now())
+  pagaEm          DateTime?
+
+  marca         Marca         @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  representante Representante @relation(fields: [representanteId], references: [id], onDelete: Cascade)
+  ata           Ata           @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  oficio        Oficio        @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([marcaId])
+  @@index([marcaId, status])
+  @@index([representanteId])
+  @@index([ataId])
+  @@map("vendas")
+}
+
+// Singleton: sempre uma única linha com id fixo "singleton", configurações
+// globais do sistema (não variam por marca).
+model Configuracao {
+  id                            String   @id @default("singleton")
+  prazoPadraoDias               Int      @default(30)
+  limiteRepresentantesPorRegiao Int?
+  alertasEmailAtivo             Boolean  @default(false)
+  alertasEmailDestinatarios     String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("configuracoes")
+}
+
+// Uma integração por marca com a Instagram Graph API (via Meta App).
+// O access token nunca é salvo em texto puro — sempre criptografado
+// (ver src/lib/crypto.ts) e nunca devolvido pela API.
+model IntegracaoMeta {
+  id                        String    @id @default(cuid())
+  marcaId                   String    @unique
+  instagramContaId          String? // Instagram Business Account ID (Graph API)
+  accessTokenCriptografado  String? // token de longa duração, criptografado (AES-256-GCM)
+  tokenExpiraEm             DateTime?
+  ativo                     Boolean   @default(false)
+  ultimaSincronizacao       DateTime?
+  ultimoErro                String? // mensagem da última falha de sync, para debug
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("integracoes_meta")
+}
+
+// Snapshot periódico das métricas do Instagram Insights para uma marca.
+// Uma linha por sincronização — permite montar séries históricas.
+model InstagramMetrica {
+  id           String   @id @default(cuid())
+  marcaId      String
+  capturadoEm  DateTime @default(now())
+  seguidores   Int
+  alcance      Int
+  impressoes   Int
+  engajamento  Float
+  curtidas     Int
+  comentarios  Int
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([marcaId, capturadoEm])
+  @@map("instagram_metricas")
+}
+
+enum StatusTemplateWhatsapp {
+  aprovado
+  pendente
+  rejeitado
+}
+
+// Uma integração por marca com a WhatsApp Business Cloud API (via Meta App).
+// Estrutura equivalente à IntegracaoMeta (Instagram), mas com credenciais
+// próprias da Cloud API: WABA ID + Phone Number ID, além do access token.
+// O token nunca é salvo em texto puro — sempre criptografado (src/lib/crypto.ts)
+// e nunca devolvido pela API.
+model IntegracaoWhatsapp {
+  id                        String    @id @default(cuid())
+  marcaId                   String    @unique
+  wabaId                    String? // WhatsApp Business Account ID
+  phoneNumberId             String? // Phone Number ID cadastrado na Cloud API
+  accessTokenCriptografado  String? // token de sistema/longa duração, criptografado (AES-256-GCM)
+  tokenExpiraEm             DateTime?
+  ativo                     Boolean   @default(false)
+  ultimaSincronizacao       DateTime?
+  ultimoErro                String? // mensagem da última falha de sync, para debug
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("integracoes_whatsapp")
+}
+
+// Snapshot periódico das métricas de Conversation Analytics da Cloud API.
+model WhatsappMetrica {
+  id                   String   @id @default(cuid())
+  marcaId              String
+  capturadoEm          DateTime @default(now())
+  conversasIniciadas   Int
+  mensagensEnviadas    Int
+  mensagensEntregues   Int
+  mensagensLidas       Int
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([marcaId, capturadoEm])
+  @@map("whatsapp_metricas")
+}
+
+// Espelho do status real dos Message Templates cadastrados na conta WhatsApp
+// Business (via endpoint /message_templates), substituindo a lista mockada.
+model WhatsappTemplate {
+  id           String                  @id @default(cuid())
+  marcaId      String
+  nome         String
+  status       StatusTemplateWhatsapp
+  categoria    String
+  atualizadoEm DateTime                @default(now())
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([marcaId, atualizadoEm])
+  @@map("whatsapp_templates")
+}
+
+enum StatusEmailEnviado {
+  enviado
+  falhou
+}
+
+// Uma integração SMTP por marca (não usa Graph API — SMTP genérico, ex: Gmail
+// com senha de app, SendGrid SMTP relay, etc). A senha nunca é salva em texto
+// puro — sempre criptografada (src/lib/crypto.ts) e nunca devolvida pela API.
+model IntegracaoEmail {
+  id                        String    @id @default(cuid())
+  marcaId                   String    @unique
+  smtpHost                  String?
+  smtpPort                  Int?
+  smtpUsuario               String?
+  smtpSenhaCriptografada    String?
+  smtpSeguro                Boolean   @default(true) // TLS/SSL
+  emailRemetente            String?
+  nomeRemetente             String?
+  ativo                     Boolean   @default(false)
+  ultimoErro                String? // mensagem da última falha de envio/teste, para debug
+  ultimaSincronizacao       DateTime? // data do último envio (teste ou real) bem-sucedido
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("integracoes_email")
+}
+
+// Log de todo e-mail que o sistema tentou enviar via SMTP (sucesso ou falha),
+// incluindo alertas automáticos, envios manuais e testes de configuração.
+model EmailEnviado {
+  id           String             @id @default(cuid())
+  marcaId      String
+  destinatario String
+  assunto      String
+  corpo        String             @db.Text
+  status       StatusEmailEnviado
+  erro         String?
+  enviadoEm    DateTime           @default(now())
+  contexto     String? // ex: "alerta_prazo", "alerta_oficio", "manual", "teste_configuracao"
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([marcaId, enviadoEm])
+  @@map("emails_enviados")
+}
+
+// Aviso manual criado por um gestor/admin, exibido na Central de Alertas ao
+// lado dos alertas automáticos (prazos vencidos / aguardando ofício). Pode ser
+// desativado (removido definitivamente da tela para todos) por quem tem
+// permissão de escrita; o "dispensar" individual por usuário é feito só no
+// cliente (sessionStorage), sem precisar de estado por-usuário no banco.
+model Aviso {
+  id        String  @id @default(cuid())
+  marcaId   String
+  titulo    String
+  mensagem  String  @db.Text
+  ativo     Boolean @default(true)
+
+  criadoPorId String?
+  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
+
+  marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([marcaId, ativo])
+  @@map("avisos")
+}
