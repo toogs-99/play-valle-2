@@ -1,124 +1,155 @@
 "use client";
 
-import React, { useState } from "react";
-import { useAtas } from "@/hooks/useAtas";
+import React, { useCallback, useEffect, useState } from "react";
 import { BarList } from "@/components/BarList";
 import { LineChart, TooltipProps } from "@/components/LineChart";
 import { Toaster } from "@/components/Toaster";
 import { useToast } from "@/lib/useToast";
 import {
-  TrendingUp,
   DollarSign,
   Users,
-  MapPin,
   FileText,
-  Award
+  Award,
+  Clock,
+  Check,
 } from "lucide-react";
 
-// Types
-type FilterType = "region" | "state";
+interface MarcaAtiva {
+  marcaId: string;
+  marcaNome: string;
+  papel: "admin" | "gestor_atas" | "financeiro" | "vendedor";
+}
 
-// Static mock data for monthly revenue
-const monthlyRevenueData = [
-  { date: "Jan 26", revenue: 12000 },
-  { date: "Feb 26", revenue: 14500 },
-  { date: "Mar 26", revenue: 17000 },
-  { date: "Apr 26", revenue: 19500 },
-  { date: "May 26", revenue: 22000 },
-  { date: "Jun 26", revenue: 15000 },
-  { date: "Jul 26", revenue: 13500 },
-  { date: "Aug 26", revenue: 18000 },
-  { date: "Sep 26", revenue: 21500 },
-  { date: "Oct 26", revenue: 24000 },
-  { date: "Nov 26", revenue: 27500 },
-  { date: "Dec 26", revenue: 31200 },
-];
+interface DashboardData {
+  kpis: {
+    totalAtas: number;
+    totalRepresentantes: number;
+    oficiosPendentes: number;
+    totalAutorizacoes: number;
+    faturamentoPago: number;
+    faturamentoPendente: number;
+  };
+  receitaMensal: { date: string; revenue: number }[];
+  topVendedores: { name: string; value: number }[];
+  topAtas: { name: string; value: number }[];
+}
 
-const fallbackSellers = [
-  { name: "Roberto Silva", value: 14 },
-  { name: "Ana Paula Souza", value: 9 },
-  { name: "Carlos Eduardo", value: 7 },
-  { name: "Julio Cesar", value: 4 },
-  { name: "Mariana Costa", value: 2 },
-];
+interface VendaPendente {
+  id: string;
+  valor: string;
+  status: "pendente" | "pago" | "cancelado";
+  criadaEm: string;
+  representante: { id: string; nome: string; cidade: string };
+  ata: { id: string; numero: string };
+}
 
-const fallbackAtasSales = [
-  { name: "GREAL ATA 001/2026", value: 23 },
-  { name: "GREAL ATA 002/2026", value: 17 },
-  { name: "ATA SIMPLIFICADA 015/2026", value: 9 },
-  { name: "ATA SIMPLIFICADA 012/2025", value: 4 },
-];
-
-
-
-// Helper to generate dynamic deterministic monthly data based on selected filter
-const getFilteredRevenueData = (filterType: FilterType, value: string) => {
-  let seed = 0;
-  for (let i = 0; i < value.length; i++) {
-    seed += value.charCodeAt(i);
-  }
-  
-  const bases = [12000, 14500, 17000, 19500, 22000, 15000, 13500, 18000, 21500, 24000, 27500, 31200];
-  
-  return bases.map((base, idx) => {
-    const variancePercent = ((seed + idx) % 11 - 5) / 50; // -10% to +10%
-    const revenue = Math.floor(base * (1 + variancePercent));
-    return {
-      date: monthlyRevenueData[idx].date,
-      revenue
-    };
-  });
-};
+const PAPEIS_MARCAR_PAGA = ["admin", "financeiro"];
 
 export default function DashboardPage() {
-  const { representantes, atas, autorizacoes } = useAtas();
   const { toast } = useToast();
 
-  // Component states for callback examples
+  const [marcaAtiva, setMarcaAtiva] = useState<MarcaAtiva | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [vendasPendentes, setVendasPendentes] = useState<VendaPendente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingVendaId, setUpdatingVendaId] = useState<string | null>(null);
+
   const [hoveredMonthlyData, setHoveredMonthlyData] = useState<TooltipProps | null>(null);
-  const [hoveredFilteredData, setHoveredFilteredData] = useState<TooltipProps | null>(null);
 
-  // Region and State filter states
-  const [filterType, setFilterType] = useState<FilterType>("region");
-  const [selectedValue, setSelectedValue] = useState<string>("Sul");
-
-  // Formatters
   const currencyFormatter = (number: number) =>
-    `R$ ${Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(number)}`;
+    number.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Dynamic values based on filters
-  const regionOptions = ["Norte", "Sul", "Leste", "Oeste", "Centro-Oeste"];
-  const stateOptions = ["SP", "MG", "RJ", "ES", "PR", "SC", "RS"];
+  const fetchDashboard = useCallback(async (marcaId: string) => {
+    const res = await fetch(`/api/dashboard?marcaId=${marcaId}`);
+    if (!res.ok) throw new Error("Falha ao carregar dados do painel.");
+    const data = await res.json();
+    setDashboard(data);
+  }, []);
 
-  const handleFilterTypeChange = (type: FilterType) => {
-    setFilterType(type);
-    setSelectedValue(type === "region" ? "Sul" : "SP");
-    setHoveredFilteredData(null);
+  const fetchVendasPendentes = useCallback(async (marcaId: string) => {
+    const res = await fetch(`/api/vendas?marcaId=${marcaId}&status=pendente`);
+    if (!res.ok) throw new Error("Falha ao carregar vendas pendentes.");
+    const data = await res.json();
+    setVendasPendentes(data.vendas);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      setLoading(true);
+      setError("");
+      try {
+        const marcaRes = await fetch("/api/marca-ativa");
+        if (!marcaRes.ok) throw new Error("Não foi possível identificar a marca ativa.");
+        const { marcaAtiva: marca } = await marcaRes.json();
+        if (cancelled) return;
+        setMarcaAtiva(marca);
+
+        await Promise.all([fetchDashboard(marca.marcaId), fetchVendasPendentes(marca.marcaId)]);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Erro inesperado.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchDashboard, fetchVendasPendentes]);
+
+  const podeMarcarPaga = marcaAtiva ? PAPEIS_MARCAR_PAGA.includes(marcaAtiva.papel) : false;
+
+  const handleMarcarPaga = async (vendaId: string) => {
+    if (!marcaAtiva) return;
+    setUpdatingVendaId(vendaId);
+    try {
+      const res = await fetch(`/api/vendas/${vendaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pago" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ description: data.error || "Falha ao marcar venda como paga." });
+        return;
+      }
+      toast({ description: "Venda marcada como paga!" });
+      await Promise.all([fetchDashboard(marcaAtiva.marcaId), fetchVendasPendentes(marcaAtiva.marcaId)]);
+    } catch {
+      toast({ description: "Erro de rede ao atualizar venda." });
+    } finally {
+      setUpdatingVendaId(null);
+    }
   };
 
-  const currentFilteredData = getFilteredRevenueData(filterType, selectedValue);
-
-  // Calculate dynamic top sellers based on current representatives
-  const topSellers = fallbackSellers;
-
-  // Calculate dynamic top atas based on current representatives
-  const topAtas = fallbackAtasSales;
-
-
-
-  // Monthly Revenue Tooltip Callback formatting
   const monthlyPayload = hoveredMonthlyData?.payload?.[0];
   const monthlyValue = monthlyPayload?.value;
+  const ultimoMes = dashboard?.receitaMensal[dashboard.receitaMensal.length - 1];
   const formattedMonthlyValue = monthlyPayload
     ? currencyFormatter(monthlyValue)
-    : currencyFormatter(monthlyRevenueData[monthlyRevenueData.length - 1].revenue);
+    : currencyFormatter(ultimoMes?.revenue ?? 0);
 
-  // Filtered Revenue Tooltip Callback formatting
-  const filteredPayload = hoveredFilteredData?.payload?.[0];
-  const filteredValue = filteredPayload?.value;
-  const formattedFilteredValue = filteredPayload
-    ? currencyFormatter(filteredValue)
-    : currencyFormatter(currentFilteredData[currentFilteredData.length - 1].revenue);
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error || !dashboard) {
+    return (
+      <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] p-12 text-center max-w-2xl mx-auto space-y-2">
+        <p className="text-sm font-semibold text-foreground font-text">{error || "Dados indisponíveis."}</p>
+      </div>
+    );
+  }
+
+  const { kpis, receitaMensal, topVendedores, topAtas } = dashboard;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -130,64 +161,64 @@ export default function DashboardPage() {
           Painel Geral de Vendas
         </h2>
         <p className="text-muted-foreground text-xs mt-1.5 font-text">
-          Visualize o ranking de representantes, produtos, atas e performance regionalizada.
+          Faturamento, rankings e vendas geradas por adesões aprovadas
+          {marcaAtiva ? ` — ${marcaAtiva.marcaNome}` : ""}.
         </p>
       </div>
 
       {/* Mini KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
-        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-fade-in-slide-down [animation-delay:100ms]">
+        <div className="bg-card border border-border p-4 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300 col-span-2 lg:col-span-2">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
-            <DollarSign size={12} className="text-primary" /> Faturamento Estimado (Anual)
+            <DollarSign size={12} className="text-primary" /> Faturamento (Pago)
           </span>
           <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
-            R$ 342.750,00
+            {currencyFormatter(kpis.faturamentoPago)}
           </h3>
-          <p className="text-[10px] text-emerald-600 font-medium mt-2">
-            +12.4% vs anterior
+          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-2">
+            + {currencyFormatter(kpis.faturamentoPendente)} a receber
           </p>
         </div>
 
-        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
-            <Users size={12} className="text-primary" /> Vendedores Ativos
+            <Users size={12} className="text-primary" /> Representantes
           </span>
           <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
-            {representantes.length > 0 ? representantes.length : 15}
+            {kpis.totalRepresentantes}
           </h3>
-          <p className="text-[10px] text-muted-foreground font-medium mt-2">
-            Por região de interesse
-          </p>
         </div>
 
-        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
-            <FileText size={12} className="text-primary" /> Atas Ativas
+            <FileText size={12} className="text-primary" /> Atas
           </span>
           <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
-            {atas.length}
+            {kpis.totalAtas}
           </h3>
-          <p className="text-[10px] text-muted-foreground font-medium mt-2">
-            Em monitoramento ativo
-          </p>
         </div>
 
-        <div className="bg-card border border-border p-4 md:p-5 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+        <div className="bg-card border border-border p-4 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
           <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
-            <MapPin size={12} className="text-primary" /> Adesões Autorizadas
+            <Clock size={12} className="text-primary" /> Ofícios Pendentes
           </span>
           <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
-            {autorizacoes.length}
+            {kpis.oficiosPendentes}
           </h3>
-          <p className="text-[10px] text-emerald-600 font-medium mt-2">
-            Ofícios expedidos
-          </p>
+        </div>
+
+        <div className="bg-card border border-border p-4 rounded-[var(--radius)] shadow-sm hover:shadow-md transition-all duration-300">
+          <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
+            <Award size={12} className="text-primary" /> Adesões
+          </span>
+          <h3 className="text-2xl font-black text-foreground mt-1.5 font-display">
+            {kpis.totalAutorizacoes}
+          </h3>
         </div>
       </div>
 
       {/* Primary Analytics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in-slide-up [animation-delay:200ms]">
-        
         {/* Card 1: Top Sellers (BarList) */}
         <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm p-6 flex flex-col hover:shadow-md transition-all duration-300">
           <div className="flex flex-col mb-4">
@@ -198,21 +229,23 @@ export default function DashboardPage() {
               Maiores Vendedores (Ranking)
             </h3>
             <p className="text-[11px] text-muted-foreground font-text mt-1">
-              Classificação dos representantes pelo volume de cotas reservadas e estados de atuação. Clique nas barras para ver detalhes.
+              Classificação dos representantes por valor total de vendas (pagas + pendentes). Clique nas barras para ver detalhes.
             </p>
           </div>
 
           <div className="flex-1 flex flex-col justify-center">
-            <BarList
-              data={topSellers}
-              valueFormatter={(val) => `${val} ${val === 1 ? "cota" : "cotas"}`}
-              onValueChange={(item) =>
-                toast({
-                  description: `Representante: ${item.name}\nReservas: ${item.value} ${item.value === 1 ? "cota" : "cotas"}`,
-                })
-              }
-              className="mt-2"
-            />
+            {topVendedores.length === 0 ? (
+              <p className="text-xs text-muted-foreground font-text text-center py-8">Nenhuma venda registrada ainda.</p>
+            ) : (
+              <BarList
+                data={topVendedores}
+                valueFormatter={(val) => currencyFormatter(val)}
+                onValueChange={(item) =>
+                  toast({ description: `Representante: ${item.name}\nTotal em vendas: ${currencyFormatter(item.value)}` })
+                }
+                className="mt-2"
+              />
+            )}
           </div>
         </div>
 
@@ -223,14 +256,13 @@ export default function DashboardPage() {
               Volume Financeiro
             </span>
             <h3 className="font-extrabold text-lg text-foreground font-display mt-0.5">
-              Meses Mais Vendidos (Faturamento)
+              Faturamento Mensal (Pago)
             </h3>
           </div>
 
-          {/* Interactive display of values based on callback hover */}
           <div className="mb-4">
             <p className="text-xs text-muted-foreground font-text">
-              {hoveredMonthlyData ? `Faturamento em ${hoveredMonthlyData.label}:` : "Faturamento total do último mês registrado:"}
+              {hoveredMonthlyData ? `Faturamento em ${hoveredMonthlyData.label}:` : "Faturamento do último mês:"}
             </p>
             <p className="text-2xl font-black text-foreground tracking-tight font-display mt-0.5">
               {formattedMonthlyValue}
@@ -239,7 +271,7 @@ export default function DashboardPage() {
 
           <div className="flex-1">
             <LineChart
-              data={monthlyRevenueData}
+              data={receitaMensal}
               index="date"
               categories={["revenue"]}
               showLegend={false}
@@ -248,10 +280,7 @@ export default function DashboardPage() {
               className="h-[220px] md:h-80"
               tooltipCallback={(props) => {
                 if (props.active) {
-                  setHoveredMonthlyData((prev) => {
-                    if (prev?.label === props.label) return prev;
-                    return props;
-                  });
+                  setHoveredMonthlyData((prev) => (prev?.label === props.label ? prev : props));
                 } else {
                   setHoveredMonthlyData(null);
                 }
@@ -260,148 +289,104 @@ export default function DashboardPage() {
             />
           </div>
         </div>
-
       </div>
 
-      {/* New Grid Row: Atas Rankings */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 animate-fade-in-slide-up [animation-delay:250ms]">
-        
-        {/* Card 4: Top Atas (BarList) */}
+      {/* Top Atas */}
+      <div className="grid grid-cols-1 gap-8 animate-fade-in-slide-up [animation-delay:250ms]">
         <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm p-6 flex flex-col hover:shadow-md transition-all duration-300">
           <div className="flex flex-col mb-4">
             <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text flex items-center gap-1">
               <Award size={12} /> Aproveitamento de Licitações
             </span>
             <h3 className="font-extrabold text-lg text-foreground font-display mt-0.5">
-              Atas Mais Vendidas (Maior Demanda)
+              Atas Mais Vendidas (Maior Faturamento)
             </h3>
             <p className="text-[11px] text-muted-foreground font-text mt-1">
-              Ranking das Atas de Registro de Preços com maior adesão e cotação de reservas por região de entrega.
+              Ranking das Atas de Registro de Preços por valor total de vendas geradas.
             </p>
           </div>
 
           <div className="flex-1 flex flex-col justify-center">
-            <BarList
-              data={topAtas}
-              valueFormatter={(val) => `${val} ${val === 1 ? "venda" : "vendas"}`}
-              onValueChange={(item) =>
-                toast({
-                  description: `Ata: ${item.name}\nTotal de ${item.value === 1 ? "venda/reserva" : "vendas/reservas"}: ${item.value}`,
-                })
-              }
-              className="mt-2"
-            />
+            {topAtas.length === 0 ? (
+              <p className="text-xs text-muted-foreground font-text text-center py-8">Nenhuma venda registrada ainda.</p>
+            ) : (
+              <BarList
+                data={topAtas}
+                valueFormatter={(val) => currencyFormatter(val)}
+                onValueChange={(item) =>
+                  toast({ description: `Ata: ${item.name}\nTotal em vendas: ${currencyFormatter(item.value)}` })
+                }
+                className="mt-2"
+              />
+            )}
           </div>
         </div>
-
       </div>
 
-      {/* Filterable Line Chart Section */}
-      <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm p-6 flex flex-col hover:shadow-md transition-all duration-300 animate-fade-in-slide-up [animation-delay:300ms]">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-4 mb-6">
+      {/* Vendas Pendentes (gestão manual) */}
+      <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm overflow-hidden animate-fade-in-slide-up [animation-delay:300ms]">
+        <div className="px-6 py-5 border-b border-border bg-muted/20 flex items-center justify-between">
           <div>
             <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-              Visualização Regional
+              Contas a Receber
             </span>
-            <h3 className="font-extrabold text-lg text-foreground font-display mt-0.5">
-              Faturamento Filtrado por Estado e Região
-            </h3>
+            <h3 className="font-bold text-sm text-foreground font-display mt-0.5">Vendas Pendentes de Pagamento</h3>
           </div>
-
-          {/* Dual Level Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Toggle Filter Type */}
-            <div className="flex bg-muted p-1 rounded-lg border border-border text-xxs font-semibold shrink-0">
-              <button
-                onClick={() => handleFilterTypeChange("region")}
-                className={`px-3 py-1 rounded-md transition-colors ${
-                  filterType === "region"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Região
-              </button>
-              <button
-                onClick={() => handleFilterTypeChange("state")}
-                className={`px-3 py-1 rounded-md transition-colors ${
-                  filterType === "state"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Estado
-              </button>
-            </div>
-
-            {/* Select Value Dropdown */}
-            <select
-              value={selectedValue}
-              onChange={(e) => {
-                setSelectedValue(e.target.value);
-                setHoveredFilteredData(null);
-              }}
-              className="bg-card border border-border px-3 py-1.5 rounded-lg text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-            >
-              {filterType === "region"
-                ? regionOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      Região {opt}
-                    </option>
-                  ))
-                : stateOptions.map((opt) => (
-                    <option key={opt} value={opt}>
-                      UF: {opt}
-                    </option>
-                  ))}
-            </select>
-          </div>
+          <span className="text-[10px] text-muted-foreground font-bold bg-muted/40 px-2 py-1 rounded-lg font-text">
+            {vendasPendentes.length} pendente(s)
+          </span>
         </div>
 
-        {/* Filtered Line Chart Output */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
-          <div className="md:col-span-1 space-y-2">
-            <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
-              Detalhamento Selecionado
-            </span>
-            <p className="text-xs text-muted-foreground font-text leading-relaxed">
-              Mostrando os meses mais vendidos para o filtro selecionado (<strong>{filterType === "region" ? `Região ${selectedValue}` : `Estado ${selectedValue}`}</strong>). Passe o mouse sobre o gráfico para ver dados específicos.
-            </p>
-            <div className="pt-2">
-              <p className="text-[11px] text-muted-foreground font-text">
-                {hoveredFilteredData ? `Faturamento em ${hoveredFilteredData.label}:` : "Último faturamento mensal do filtro:"}
-              </p>
-              <p className="text-xl font-bold text-foreground font-display">
-                {formattedFilteredValue}
-              </p>
-            </div>
+        {vendasPendentes.length === 0 ? (
+          <div className="p-10 text-center text-muted-foreground">
+            <p className="text-xs font-text">Nenhuma venda pendente de pagamento no momento.</p>
           </div>
-
-          <div className="md:col-span-3">
-            <LineChart
-              data={currentFilteredData}
-              index="date"
-              categories={["revenue"]}
-              showLegend={false}
-              showYAxis={false}
-              startEndOnly={true}
-              className="h-[220px] md:h-80"
-              tooltipCallback={(props) => {
-                if (props.active) {
-                  setHoveredFilteredData((prev) => {
-                    if (prev?.label === props.label) return prev;
-                    return props;
-                  });
-                } else {
-                  setHoveredFilteredData(null);
-                }
-                return null;
-              }}
-            />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase font-text">
+                  <th className="p-4">Representante</th>
+                  <th className="p-4">Ata</th>
+                  <th className="p-4">Criada Em</th>
+                  <th className="p-4 text-right">Valor</th>
+                  <th className="p-4 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {vendasPendentes.map((venda) => (
+                  <tr key={venda.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="p-4 font-semibold text-foreground font-text">{venda.representante.nome}</td>
+                    <td className="p-4 text-muted-foreground font-text">{venda.ata.numero}</td>
+                    <td className="p-4 text-muted-foreground font-text">
+                      {new Date(venda.criadaEm).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="p-4 text-right font-bold text-foreground font-text">
+                      {currencyFormatter(Number(venda.valor))}
+                    </td>
+                    <td className="p-4 text-right">
+                      {podeMarcarPaga ? (
+                        <button
+                          onClick={() => handleMarcarPaga(venda.id)}
+                          disabled={updatingVendaId === venda.id}
+                          className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                        >
+                          <Check size={11} />
+                          {updatingVendaId === venda.id ? "Salvando..." : "Marcar como Paga"}
+                        </button>
+                      ) : (
+                        <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 font-text">
+                          Pendente
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
-

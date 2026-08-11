@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useBrand } from "@/context/BrandContext";
 import {
   Bell,
@@ -15,6 +15,7 @@ import {
   ChevronRight,
   TrendingUp,
   AlertTriangle,
+  Clock,
   User,
   LogOut,
   HelpCircle,
@@ -30,6 +31,28 @@ interface SidebarItem {
   icon: React.ComponentType<any>;
   badge?: string;
   badgeType?: "danger" | "warning" | "info";
+}
+
+interface Notificacao {
+  id: string;
+  tipo: "vencido" | "aguardando";
+  nome: string;
+  cidade: string;
+  ataId: string;
+  ataNumero: string;
+  waitingDeadline: string;
+}
+
+interface MarcaSessao {
+  marcaId: string;
+  marcaNome: string;
+  papel: string;
+}
+
+// As marcas hoje são sempre "Esporte Valle" / "Play Valle" — deriva o id de
+// tema (logo + paleta) a partir do nome real vindo do backend.
+function brandIdFromNome(nome: string): "esporte" | "play" {
+  return nome.toLowerCase().includes("play") ? "play" : "esporte";
 }
 
 const BrandLogo = ({ brand }: { brand: 'esporte' | 'play' }) => {
@@ -59,11 +82,140 @@ export default function DashboardShell({
 }) {
   const { brand, setBrand } = useBrand();
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
+  const [marcasDisponiveis, setMarcasDisponiveis] = useState<MarcaSessao[]>([]);
+  const [marcaAtivaId, setMarcaAtivaId] = useState<string | null>(null);
+  const [switchingMarcaId, setSwitchingMarcaId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
+  const [notificacoesLoading, setNotificacoesLoading] = useState(true);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const pathname = usePathname();
+  const router = useRouter();
+
+  const fetchNotificacoes = useCallback(async () => {
+    setNotificacoesLoading(true);
+    try {
+      const marcaRes = await fetch("/api/marca-ativa");
+      if (!marcaRes.ok) return;
+      const { marcaAtiva } = await marcaRes.json();
+
+      const [vencidosRes, aguardandoRes] = await Promise.all([
+        fetch(`/api/representantes?marcaId=${marcaAtiva.marcaId}&status=expired`),
+        fetch(`/api/representantes?marcaId=${marcaAtiva.marcaId}&status=waiting_letter`),
+      ]);
+
+      const itens: Notificacao[] = [];
+
+      if (vencidosRes.ok) {
+        const { representantes } = await vencidosRes.json();
+        for (const r of representantes) {
+          itens.push({
+            id: r.id,
+            tipo: "vencido",
+            nome: r.nome,
+            cidade: r.cidade,
+            ataId: r.ata.id,
+            ataNumero: r.ata.numero,
+            waitingDeadline: r.waitingDeadline,
+          });
+        }
+      }
+
+      if (aguardandoRes.ok) {
+        const { representantes } = await aguardandoRes.json();
+        for (const r of representantes) {
+          itens.push({
+            id: r.id,
+            tipo: "aguardando",
+            nome: r.nome,
+            cidade: r.cidade,
+            ataId: r.ata.id,
+            ataNumero: r.ata.numero,
+            waitingDeadline: r.waitingDeadline,
+          });
+        }
+      }
+
+      itens.sort((a, b) => new Date(a.waitingDeadline).getTime() - new Date(b.waitingDeadline).getTime());
+      setNotificacoes(itens);
+    } catch {
+      setNotificacoes([]);
+    } finally {
+      setNotificacoesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotificacoes();
+  }, [fetchNotificacoes]);
+
+  // Resolve as marcas que o usuário logado realmente tem acesso, e sincroniza
+  // o seletor com a marca ativa de verdade (cookie httpOnly validado no
+  // servidor) — não com o localStorage do BrandContext, que é só cosmético.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const [sessionRes, marcaAtivaRes] = await Promise.all([
+          fetch("/api/auth/session"),
+          fetch("/api/marca-ativa"),
+        ]);
+
+        if (sessionRes.ok) {
+          const session = await sessionRes.json();
+          const marcas: MarcaSessao[] = session?.user?.marcas ?? [];
+          if (!cancelled) setMarcasDisponiveis(marcas);
+        }
+
+        if (marcaAtivaRes.ok) {
+          const { marcaAtiva } = await marcaAtivaRes.json();
+          if (marcaAtiva && !cancelled) {
+            setMarcaAtivaId(marcaAtiva.marcaId);
+            setBrand(brandIdFromNome(marcaAtiva.marcaNome));
+          }
+        }
+      } catch {
+        // silencioso — a sidebar simplesmente não mostrará o seletor
+      }
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSelecionarMarca = async (marca: MarcaSessao) => {
+    if (marca.marcaId === marcaAtivaId) {
+      setBrandDropdownOpen(false);
+      return;
+    }
+
+    setSwitchingMarcaId(marca.marcaId);
+    try {
+      const res = await fetch("/api/marca-ativa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marcaId: marca.marcaId }),
+      });
+      if (!res.ok) return;
+
+      setBrand(brandIdFromNome(marca.marcaNome));
+      setBrandDropdownOpen(false);
+      setSidebarOpen(false);
+      // Recarrega a página inteira: cada tela busca seus próprios dados via
+      // /api/marca-ativa no mount, então um reload garante que tudo (atas,
+      // representantes, dashboard, integrações etc.) reflita a nova marca.
+      window.location.reload();
+    } finally {
+      setSwitchingMarcaId(null);
+    }
+  };
 
   // Swipe gesture tracking state
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -190,41 +342,42 @@ export default function DashboardShell({
                 <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Selecione a Empresa
                 </div>
-                {[
-                  {
-                    id: "esporte" as const,
-                    name: "Esporte Valle",
-                    desc: "Materiais Esportivos",
-                  },
-                  {
-                    id: "play" as const,
-                    name: "Play Valle",
-                    desc: "Playgrounds & Parques",
-                  }
-                ].map((b) => (
-                  <button
-                    key={b.id}
-                    onClick={() => {
-                      setBrand(b.id);
-                      setBrandDropdownOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
-                      brand === b.id 
-                        ? "bg-slate-50 font-semibold text-slate-900" 
-                        : "hover:bg-slate-50 text-slate-600"
-                    }`}
-                  >
-                    <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                      b.id === 'esporte' ? 'bg-[#1F2A5A]' : 'bg-[#0F6F5B]'
-                    }`}>
-                      {b.id === 'esporte' ? 'EV' : 'PV'}
-                    </div>
-                    <div className="flex-1 min-w-0 leading-tight">
-                      <p className="text-xs font-bold truncate">{b.name}</p>
-                      <p className="text-[9px] text-slate-450 truncate">{b.desc}</p>
-                    </div>
-                  </button>
-                ))}
+                {marcasDisponiveis.length === 0 ? (
+                  <div className="px-2 py-3 text-[10px] text-slate-400 text-center">
+                    Nenhuma marca disponível.
+                  </div>
+                ) : (
+                  marcasDisponiveis.map((m) => {
+                    const id = brandIdFromNome(m.marcaNome);
+                    const isActive = m.marcaId === marcaAtivaId;
+                    return (
+                      <button
+                        key={m.marcaId}
+                        onClick={() => handleSelecionarMarca(m)}
+                        disabled={switchingMarcaId !== null}
+                        className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors disabled:opacity-60 ${
+                          isActive
+                            ? "bg-slate-50 font-semibold text-slate-900"
+                            : "hover:bg-slate-50 text-slate-600"
+                        }`}
+                      >
+                        <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                          id === "esporte" ? "bg-[#1F2A5A]" : "bg-[#0F6F5B]"
+                        }`}>
+                          {switchingMarcaId === m.marcaId ? (
+                            <span className="h-2.5 w-2.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            id === "esporte" ? "EV" : "PV"
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 leading-tight">
+                          <p className="text-xs font-bold truncate">{m.marcaNome}</p>
+                          <p className="text-[9px] text-slate-450 truncate capitalize">{m.papel.replace("_", " ")}</p>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </>
           )}
@@ -353,42 +506,42 @@ export default function DashboardShell({
                   <div className="px-2 py-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
                     Selecione a Empresa
                   </div>
-                  {[
-                    {
-                      id: "esporte" as const,
-                      name: "Esporte Valle",
-                      desc: "Materiais Esportivos",
-                    },
-                    {
-                      id: "play" as const,
-                      name: "Play Valle",
-                      desc: "Playgrounds & Parques",
-                    }
-                  ].map((b) => (
-                    <button
-                      key={b.id}
-                      onClick={() => {
-                        setBrand(b.id);
-                        setBrandDropdownOpen(false);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors ${
-                        brand === b.id 
-                          ? "bg-slate-50 font-semibold text-slate-900" 
-                          : "hover:bg-slate-50 text-slate-600"
-                      }`}
-                    >
-                      <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                        b.id === 'esporte' ? 'bg-[#1F2A5A]' : 'bg-[#0F6F5B]'
-                      }`}>
-                        {b.id === 'esporte' ? 'EV' : 'PV'}
-                      </div>
-                      <div className="flex-1 min-w-0 leading-tight">
-                        <p className="text-xs font-bold truncate">{b.name}</p>
-                        <p className="text-[9px] text-slate-450 truncate">{b.desc}</p>
-                      </div>
-                    </button>
-                  ))}
+                  {marcasDisponiveis.length === 0 ? (
+                    <div className="px-2 py-3 text-[10px] text-slate-400 text-center">
+                      Nenhuma marca disponível.
+                    </div>
+                  ) : (
+                    marcasDisponiveis.map((m) => {
+                      const id = brandIdFromNome(m.marcaNome);
+                      const isActive = m.marcaId === marcaAtivaId;
+                      return (
+                        <button
+                          key={m.marcaId}
+                          onClick={() => handleSelecionarMarca(m)}
+                          disabled={switchingMarcaId !== null}
+                          className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-left transition-colors disabled:opacity-60 ${
+                            isActive
+                              ? "bg-slate-50 font-semibold text-slate-900"
+                              : "hover:bg-slate-50 text-slate-600"
+                          }`}
+                        >
+                          <div className={`h-6 w-6 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                            id === "esporte" ? "bg-[#1F2A5A]" : "bg-[#0F6F5B]"
+                          }`}>
+                            {switchingMarcaId === m.marcaId ? (
+                              <span className="h-2.5 w-2.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              id === "esporte" ? "EV" : "PV"
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 leading-tight">
+                            <p className="text-xs font-bold truncate">{m.marcaNome}</p>
+                            <p className="text-[9px] text-slate-450 truncate capitalize">{m.papel.replace("_", " ")}</p>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               </>
             )}
@@ -512,16 +665,100 @@ export default function DashboardShell({
             </button>
 
             {/* Notifications Icon */}
-            <button className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-xl border border-slate-200/50 transition-all">
-              <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-[#E97826] ring-2 ring-white" />
-              <Bell size={18} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotificationsOpen((v) => !v);
+                  setProfileDropdownOpen(false);
+                }}
+                className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 active:scale-95 rounded-xl border border-slate-200/50 cursor-pointer transition-all duration-150"
+              >
+                {notificacoes.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E97826] opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-[#E97826] ring-2 ring-white" />
+                  </span>
+                )}
+                <Bell size={18} />
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl bg-white shadow-lg shadow-slate-100 border border-slate-150 ring-1 ring-black/5 focus:outline-none z-30 animate-in fade-in duration-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-xs font-bold text-slate-800">Notificações</p>
+                      {notificacoes.length > 0 && (
+                        <span className="text-[10px] text-slate-450 font-medium">
+                          {notificacoes.length} pendente{notificacoes.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
+                      {notificacoesLoading ? (
+                        <div className="p-6 flex justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-300" />
+                        </div>
+                      ) : notificacoes.length === 0 ? (
+                        <div className="p-6 text-center">
+                          <p className="text-xs text-slate-400">Nenhuma notificação no momento.</p>
+                        </div>
+                      ) : (
+                        notificacoes.slice(0, 8).map((n) => (
+                          <button
+                            key={n.id}
+                            onClick={() => {
+                              setNotificationsOpen(false);
+                              router.push(`/atas/${n.ataId}`);
+                            }}
+                            className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors"
+                          >
+                            <div className={`h-6 w-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                              n.tipo === "vencido" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"
+                            }`}>
+                              {n.tipo === "vencido" ? <AlertTriangle size={13} /> : <Clock size={13} />}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-800 truncate">{n.nome}</p>
+                              <p className="text-[10px] text-slate-450 truncate">
+                                {n.ataNumero} · {n.cidade}
+                              </p>
+                              <p className={`text-[10px] font-semibold mt-0.5 ${
+                                n.tipo === "vencido" ? "text-rose-600" : "text-amber-600"
+                              }`}>
+                                {n.tipo === "vencido" ? "Prazo vencido em " : "Prazo até "}
+                                {new Date(n.waitingDeadline).toLocaleDateString("pt-BR")}
+                              </p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    <Link
+                      href="/alertas"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="block px-4 py-2.5 text-center text-[11px] font-semibold text-indigo-650 hover:bg-slate-50 border-t border-slate-100 transition-colors"
+                    >
+                      Ver Central de Alertas
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Profile Menu Dropdown */}
             <div className="relative">
               <button
                 className="flex items-center gap-2 hover:bg-slate-50 p-1.5 rounded-xl transition-all"
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                onClick={() => {
+                  setProfileDropdownOpen(!profileDropdownOpen);
+                  setNotificationsOpen(false);
+                }}
               >
                 <div className="h-8 w-8 rounded-lg bg-indigo-650 text-white font-bold flex items-center justify-center text-xs shadow-sm">
                   VH
