@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Clock,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 
 interface MarcaAtiva {
@@ -52,6 +53,7 @@ export default function EmailsPage() {
   const { toast } = useToast();
 
   const [marcaAtiva, setMarcaAtiva] = useState<MarcaAtiva | null>(null);
+  const [tabAtiva, setTabAtiva] = useState<"disparador" | "smtp">("disparador");
   const [integracao, setIntegracao] = useState<IntegracaoStatus | null>(null);
   const [emails, setEmails] = useState<EmailEnviado[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<EmailEnviado | null>(null);
@@ -250,37 +252,143 @@ export default function EmailsPage() {
             Central de E-mails
           </h2>
           <p className="text-muted-foreground text-xs mt-1.5 font-text">
-            Envio real via SMTP e histórico de comunicados, alertas e testes
+            Disparador de e-mails Google e gestão de comunicados
             {marcaAtiva ? ` — ${marcaAtiva.marcaNome}` : ""}.
           </p>
         </div>
 
-        {podeConfigurar && (
-          <button
-            onClick={() => {
-              setFormHost(integracao?.smtpHost ?? "");
-              setFormPort(String(integracao?.smtpPort ?? 587));
-              setFormUsuario(integracao?.smtpUsuario ?? "");
-              setFormSenha("");
-              setFormSeguro(integracao?.smtpSeguro ?? true);
-              setFormRemetente(integracao?.emailRemetente ?? "");
-              setFormNomeRemetente(integracao?.nomeRemetente ?? "");
-              setFormError("");
-              setShowConfigForm((v) => !v);
-            }}
-            className="flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors border border-primary/20"
+        <div className="flex items-center gap-2">
+          {tabAtiva === "smtp" && podeConfigurar && (
+            <button
+              onClick={() => {
+                setFormHost(integracao?.smtpHost ?? "");
+                setFormPort(String(integracao?.smtpPort ?? 587));
+                setFormUsuario(integracao?.smtpUsuario ?? "");
+                setFormSenha("");
+                setFormSeguro(integracao?.smtpSeguro ?? true);
+                setFormRemetente(integracao?.emailRemetente ?? "");
+                setFormNomeRemetente(integracao?.nomeRemetente ?? "");
+                setFormError("");
+                setShowConfigForm((v) => !v);
+              }}
+              className="flex items-center gap-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors border border-primary/20"
+            >
+              <Settings size={14} />
+              Configurar SMTP
+            </button>
+          )}
+          <a
+            href="https://sportvalle.ia.sanjaworks.com/campanhas-email"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs px-3.5 py-2 rounded-xl transition-colors"
           >
-            <Settings size={14} />
-            Configurar Integração
-          </button>
-        )}
+            <ExternalLink size={14} />
+            Abrir Disparador Completo
+          </a>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      {/* Abas */}
+      <div className="flex items-center gap-2 border-b border-border pb-2">
+        <button
+          onClick={() => setTabAtiva("disparador")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            tabAtiva === "disparador"
+              ? "bg-slate-900 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          }`}
+        >
+          <Mail size={14} />
+          Disparador Google ({marcaAtiva?.marcaNome || "Oficial"})
+        </button>
+        <button
+          onClick={() => setTabAtiva("smtp")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            tabAtiva === "smtp"
+              ? "bg-slate-900 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          }`}
+        >
+          <Settings size={14} />
+          Configuração SMTP & Logs
+        </button>
+      </div>
+
+      {tabAtiva === "disparador" ? (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Card explicativo e Acesso Rápido */}
+          <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-blue-200 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    Disparador de E-mails Google — {marcaAtiva?.marcaNome || "Esporte Valle"}
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  O Google bloqueia autenticações OAuth em janelas embutidas (política de segurança anti-clickjacking que gera o <strong>Erro 403 do Google</strong> no quadro). Para conectar sua conta Gmail ou disparar com o Google, abra o disparador oficial em uma nova aba do navegador.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0">
+                <a
+                  href="https://sportvalle.ia.sanjaworks.com/campanhas-email"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
+                >
+                  <ExternalLink size={14} />
+                  Abrir Disparador em Nova Aba
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setTabAtiva("smtp")}
+                  className="flex items-center gap-1.5 bg-card hover:bg-muted text-foreground border border-border font-semibold text-xs px-3.5 py-2.5 rounded-xl transition-colors"
+                >
+                  <Settings size={14} />
+                  Usar SMTP Nativo
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Iframe embutido com aviso de contexto */}
+          <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-slate-50 dark:bg-neutral-900 border-b border-border flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                <Mail size={14} className="text-indigo-500" />
+                Visualização do Disparador (SanjaWorks)
+              </span>
+              <a
+                href="https://sportvalle.ia.sanjaworks.com/campanhas-email"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-semibold"
+              >
+                Tela cheia <ExternalLink size={12} />
+              </a>
+            </div>
+            <iframe
+              id="email-frame"
+              src="https://sportvalle.ia.sanjaworks.com/campanhas-email"
+              title="Disparador de E-mail Google"
+              allow="clipboard-read; clipboard-write; identity-credentials-get; publickey-credentials-get"
+              className="w-full h-[760px] border-0 bg-white"
+            />
+          </div>
         </div>
-      ) : error ? (
+      ) : (
+        <>
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : error ? (
         <div className="bg-card border border-gray-200 dark:border-neutral-800 rounded-[12px] p-12 text-center space-y-2">
           <AlertCircle size={28} className="mx-auto text-destructive" />
           <p className="text-sm font-semibold text-foreground font-text">{error}</p>
@@ -610,6 +718,8 @@ export default function EmailsPage() {
           )}
         </>
       )}
+      </>
+    )}
 
       {/* Email detail modal */}
       {selectedEmail && (

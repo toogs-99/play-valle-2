@@ -27,6 +27,7 @@ export interface LineChartProps {
   showYAxis?: boolean;
   startEndOnly?: boolean;
   className?: string;
+  valueFormatter?: (value: number) => string;
   tooltipCallback?: (props: TooltipProps) => React.ReactNode | null;
 }
 
@@ -77,6 +78,7 @@ export function LineChart({
   showYAxis = true,
   startEndOnly = false,
   className,
+  valueFormatter,
   tooltipCallback,
 }: LineChartProps) {
   const [isMounted, setIsMounted] = useState(false);
@@ -152,6 +154,27 @@ export function LineChart({
 
           <Tooltip
             content={({ active, payload, label }) => {
+              const currentVal = payload?.[0]?.value;
+              const currentName = payload?.[0]?.name;
+              const isCurrency =
+                categories.includes("revenue") ||
+                categories.includes("valor") ||
+                currentName === "revenue" ||
+                currentName === "valor";
+
+              let formattedVal = "";
+              if (typeof currentVal === "number") {
+                if (valueFormatter) {
+                  formattedVal = valueFormatter(currentVal);
+                } else if (isCurrency) {
+                  formattedVal = `R$ ${Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(currentVal)}`;
+                } else {
+                  formattedVal = currentVal.toLocaleString("pt-BR");
+                }
+              } else if (currentVal !== undefined && currentVal !== null) {
+                formattedVal = String(currentVal);
+              }
+
               return (
                 <>
                   <CustomTooltipReporter 
@@ -160,15 +183,11 @@ export function LineChart({
                     label={label} 
                     tooltipCallback={tooltipCallback} 
                   />
-                  {active && payload && payload.length && (
+                  {active && payload && payload.length > 0 && (
                     <div className="bg-neutral-900 text-neutral-100 p-2 rounded-lg shadow-md border-0 text-[10px] font-text leading-normal z-50">
                       <p className="font-bold">{translateMonth(label)}</p>
                       <p className="font-semibold mt-0.5 text-indigo-400">
-                        {typeof payload[0].value === "number" && payload[0].value > 500
-                          ? payload[0].name === "clicks" || payload[0].name === "followers" || payload[0].value === 4827 || payload[0].value === 3400 || payload[0].value < 5000
-                            ? `${payload[0].value.toLocaleString("pt-BR")}`
-                            : `R$ ${Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2 }).format(payload[0].value)}`
-                          : payload[0].value}
+                        {formattedVal}
                       </p>
                     </div>
                   )}

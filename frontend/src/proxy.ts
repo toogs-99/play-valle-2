@@ -7,11 +7,20 @@ import { auth } from "@/auth";
 // Handler via requireRole() — nunca confiar só nesta camada.
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isDashboardRoute = req.nextUrl.pathname.startsWith("/dashboard") ||
-    req.nextUrl.pathname.startsWith("/atas") ||
-    req.nextUrl.pathname.startsWith("/representantes") ||
-    req.nextUrl.pathname.startsWith("/alertas") ||
-    req.nextUrl.pathname.startsWith("/configuracoes");
+  const dashboardPrefixes = [
+    "/dashboard",
+    "/atas",
+    "/representantes",
+    "/alertas",
+    "/configuracoes",
+    "/emails",
+    "/whatsapp",
+    "/instagram",
+    "/anuncios",
+  ];
+  const isDashboardRoute = dashboardPrefixes.some((prefix) =>
+    req.nextUrl.pathname.startsWith(prefix)
+  );
 
   if (isDashboardRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -23,5 +32,15 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/atas/:path*", "/representantes/:path*", "/alertas/:path*", "/configuracoes/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/atas/:path*",
+    "/representantes/:path*",
+    "/alertas/:path*",
+    "/configuracoes/:path*",
+    "/emails/:path*",
+    "/whatsapp/:path*",
+    "/instagram/:path*",
+    "/anuncios/:path*",
+  ],
 };

@@ -20,12 +20,15 @@ async function main() {
   });
 
   const admin = await prisma.usuario.upsert({
-    where: { email: "admin@licitflow.com.br" },
-    update: {},
+    where: { email: "Admin Grupo valle" },
+    update: {
+      nome: "Admin Grupo valle",
+      senhaHash: hashPassword("Grupovalle1234#"),
+    },
     create: {
-      nome: "Administrador LicitFlow",
-      email: "admin@licitflow.com.br",
-      senhaHash: hashPassword("admin123"),
+      nome: "Admin Grupo valle",
+      email: "Admin Grupo valle",
+      senhaHash: hashPassword("Grupovalle1234#"),
     },
   });
 
@@ -40,6 +43,42 @@ async function main() {
     update: { papel: "admin" },
     create: { usuarioId: admin.id, marcaId: playValle.id, papel: "admin" },
   });
+
+  const outrosUsuarios = [
+    {
+      nome: "André Simões Júnior",
+      email: "andre_pms2011@hotmail.com",
+      senha: "bTouA2Hhu9qFAa1!",
+    },
+    {
+      nome: "Bianca",
+      email: "biancagoncalves20@outlook.com",
+      senha: "Asdw2026@",
+    },
+  ];
+
+  for (const u of outrosUsuarios) {
+    const user = await prisma.usuario.upsert({
+      where: { email: u.email },
+      update: {
+        nome: u.nome,
+        senhaHash: hashPassword(u.senha),
+      },
+      create: {
+        nome: u.nome,
+        email: u.email,
+        senhaHash: hashPassword(u.senha),
+      },
+    });
+
+    for (const marca of [esporteValle, playValle]) {
+      await prisma.usuarioMarca.upsert({
+        where: { usuarioId_marcaId: { usuarioId: user.id, marcaId: marca.id } },
+        update: { papel: "admin" },
+        create: { usuarioId: user.id, marcaId: marca.id, papel: "admin" },
+      });
+    }
+  }
 
   console.log("Seed concluído:");
   console.log({ esporteValle, playValle, admin: { id: admin.id, email: admin.email } });

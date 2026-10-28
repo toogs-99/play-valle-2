@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useBrand } from "@/context/BrandContext";
 import {
   Bell,
@@ -92,8 +93,17 @@ export default function DashboardShell({
   const [notificacoesLoading, setNotificacoesLoading] = useState(true);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [userName, setUserName] = useState<string>("Admin Grupo valle");
+  const [userEmail, setUserEmail] = useState<string>("Admin Grupo valle");
   const pathname = usePathname();
   const router = useRouter();
+
+  const userInitials = React.useMemo(() => {
+    if (!userName) return "AG";
+    const parts = userName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + (parts[1]?.[0] || parts[parts.length - 1][0])).toUpperCase();
+  }, [userName]);
 
   const fetchNotificacoes = useCallback(async () => {
     setNotificacoesLoading(true);
@@ -168,7 +178,11 @@ export default function DashboardShell({
         if (sessionRes.ok) {
           const session = await sessionRes.json();
           const marcas: MarcaSessao[] = session?.user?.marcas ?? [];
-          if (!cancelled) setMarcasDisponiveis(marcas);
+          if (!cancelled) {
+            setMarcasDisponiveis(marcas);
+            if (session?.user?.nome) setUserName(session.user.nome);
+            if (session?.user?.email) setUserEmail(session.user.email);
+          }
         }
 
         if (marcaAtivaRes.ok) {
@@ -435,19 +449,19 @@ export default function DashboardShell({
             </div>
 
             {/* Profile footer inside sidebar */}
-            <button className="flex items-center w-full gap-2 p-2 rounded-md hover:bg-slate-100 transition-colors text-left">
+            <div className="flex items-center w-full gap-2 p-2 rounded-md hover:bg-slate-100 transition-colors text-left">
               <div className="h-8 w-8 rounded-lg bg-indigo-650 text-white font-semibold flex items-center justify-center text-xs shrink-0">
-                VH
+                {userInitials}
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <p className="text-sm font-semibold text-slate-900 truncate leading-tight">
-                  Victor Hugo
+                  {userName}
                 </p>
                 <p className="text-xs text-slate-500 truncate leading-tight">
-                  victor@licitflow.com.br
+                  {userEmail}
                 </p>
               </div>
-            </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -761,7 +775,7 @@ export default function DashboardShell({
                 }}
               >
                 <div className="h-8 w-8 rounded-lg bg-indigo-650 text-white font-bold flex items-center justify-center text-xs shadow-sm">
-                  VH
+                  {userInitials}
                 </div>
               </button>
 
@@ -774,22 +788,18 @@ export default function DashboardShell({
                   <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl bg-white p-1.5 shadow-lg shadow-slate-100 border border-slate-150 ring-1 ring-black/5 focus:outline-none z-30 animate-in fade-in duration-100">
                     <div className="px-3 py-2 border-b border-slate-50">
                       <p className="text-xs font-semibold text-slate-800">
-                        Victor Hugo
+                        {userName}
                       </p>
                       <p className="text-[10px] text-slate-400">
-                        victor@licitflow.com.br
+                        {userEmail}
                       </p>
                     </div>
                     <button
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 rounded-lg transition-colors text-left mt-1"
-                      onClick={() => setProfileDropdownOpen(false)}
-                    >
-                      <User size={14} />
-                      Meu Perfil
-                    </button>
-                    <button
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50/50 rounded-lg transition-colors text-left"
-                      onClick={() => setProfileDropdownOpen(false)}
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        signOut({ callbackUrl: "/login" });
+                      }}
                     >
                       <LogOut size={14} />
                       Sair

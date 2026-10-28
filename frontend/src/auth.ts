@@ -23,6 +23,7 @@ declare module "next-auth" {
   interface User {
     id: string;
     nome: string;
+    email?: string;
     marcas: MarcaAcesso[];
   }
 }
@@ -31,6 +32,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     nome: string;
+    email?: string;
     marcas: MarcaAcesso[];
   }
 }
@@ -55,8 +57,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const usuario = await prisma.usuario.findUnique({
-          where: { email },
+        const cleanLogin = email.trim();
+        const usuario = await prisma.usuario.findFirst({
+          where: {
+            OR: [
+              { email: cleanLogin },
+              { email: { equals: cleanLogin, mode: "insensitive" } },
+              { nome: { equals: cleanLogin, mode: "insensitive" } },
+            ],
+          },
           include: {
             marcas: {
               include: { marca: true },
@@ -89,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id;
         token.nome = user.nome;
+        token.email = user.email;
         token.marcas = user.marcas;
       }
       return token;
@@ -96,6 +106,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.nome = token.nome;
+      if (token.email) session.user.email = token.email;
       session.user.marcas = token.marcas;
       return session;
     },

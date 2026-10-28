@@ -1,0 +1,9 @@
+grupovalle.sanjaworks.com {
+	encode gzip
+	reverse_proxy app:8142
+}
+
+gestor.sanjaworks.com {
+	encode gzip
+	reverse_proxy 172.31.0.1:3000
+}

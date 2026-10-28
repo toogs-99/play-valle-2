@@ -67,3 +67,33 @@ export async function PATCH(
 
   return NextResponse.json({ ata });
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const ataAtual = await prisma.ata.findUnique({ where: { id } });
+  if (!ataAtual) {
+    return NextResponse.json({ error: "Ata não encontrada." }, { status: 404 });
+  }
+
+  const check = await requireRole(ataAtual.marcaId, [...PAPEIS_ESCRITA]);
+  if (check.error) return check.error;
+
+  try {
+    await prisma.ata.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ ok: true, message: "Ata excluída com sucesso." });
+  } catch (err) {
+    console.error("Erro ao excluir ata:", err);
+    return NextResponse.json(
+      { error: "Não foi possível excluir a ata. Tente novamente." },
+      { status: 500 }
+    );
+  }
+}
+

@@ -422,12 +422,12 @@ export default function RepresentantesPage() {
 
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block font-text">
-                    Cidade Pretendida de Venda
+                    Cidade / Secretaria Pretendida de Venda
                   </label>
                   <CityCombobox
                     value={formCidade}
                     onChange={setFormCidade}
-                    placeholder="Busque a cidade (ex: São Paulo)"
+                    placeholder="Busque ou digite a cidade/secretaria..."
                   />
                 </div>
 

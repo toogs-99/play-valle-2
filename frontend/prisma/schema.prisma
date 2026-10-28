@@ -395,3 +395,12 @@ model Aviso {
   @@index([marcaId, ativo])
   @@map("avisos")
 }
+
+model Secretaria {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("secretarias")
+}
+
