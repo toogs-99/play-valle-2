@@ -240,6 +240,9 @@ export default function DashboardShell({
     }
   };
 
+  const totalVencidos = notificacoes.filter((n) => n.tipo === "vencido").length;
+  const totalAguardando = notificacoes.filter((n) => n.tipo === "aguardando").length;
+
   const navigation: SidebarItem[] = [
     {
       name: "Painel Geral",
@@ -250,7 +253,7 @@ export default function DashboardShell({
       name: "Alertas",
       href: "/alertas",
       icon: Bell,
-      badge: "4 Vencidos",
+      badge: totalVencidos > 0 ? `${totalVencidos} Vencido${totalVencidos === 1 ? "" : "s"}` : undefined,
       badgeType: "danger",
     },
     {
@@ -262,7 +265,7 @@ export default function DashboardShell({
       name: "Representantes",
       href: "/representantes",
       icon: Users,
-      badge: "Aguardando",
+      badge: totalAguardando > 0 ? `${totalAguardando} Aguardando` : undefined,
       badgeType: "warning",
     },
     {
@@ -811,7 +814,7 @@ export default function DashboardShell({
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-slate-200 z-35 flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom,0px)] shadow-lg shadow-slate-100">
         {[
           { name: "Painel", href: "/dashboard", icon: TrendingUp },
-          { name: "Alertas", href: "/alertas", icon: Bell, badge: "4" },
+          { name: "Alertas", href: "/alertas", icon: Bell, badge: notificacoes.length > 0 ? String(notificacoes.length) : undefined },
           { name: "Atas", href: "/atas", icon: FileText },
           { name: "Mais", href: "#", icon: Menu, action: () => setSidebarOpen(true) }
         ].map((item, idx) => {
