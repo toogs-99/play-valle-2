@@ -14,9 +14,16 @@ import {
   X,
   Trash2,
   Megaphone,
+  CheckCheck,
 } from "lucide-react";
 import { Toaster } from "@/components/Toaster";
 import { useToast } from "@/lib/useToast";
+import {
+  getRepAlertKey,
+  getAvisoAlertKey,
+  markAlertsAsVisualized,
+  markAlertAsVisualized,
+} from "@/lib/alertsStorage";
 
 interface MarcaAtiva {
   marcaId: string;
@@ -101,6 +108,22 @@ export default function AlertasPage() {
     if (avisosRes.ok) {
       const { avisos: avisosData } = await avisosRes.json();
       setAvisos(avisosData);
+
+      // Marca todos os alertas visíveis na tela como visualizados
+      const expiradosKeys = expirados.map((r: any) => getRepAlertKey(r.id, "expired"));
+      const aguardandoKeys = aguardando.map((r: any) => getRepAlertKey(r.id, "waiting_letter"));
+      const avisosKeys = (avisosData || []).map((a: any) => getAvisoAlertKey(a.id));
+      const allKeys = [...expiradosKeys, ...aguardandoKeys, ...avisosKeys];
+      if (allKeys.length > 0) {
+        markAlertsAsVisualized(marcaId, allKeys);
+      }
+    } else {
+      const expiradosKeys = expirados.map((r: any) => getRepAlertKey(r.id, "expired"));
+      const aguardandoKeys = aguardando.map((r: any) => getRepAlertKey(r.id, "waiting_letter"));
+      const allKeys = [...expiradosKeys, ...aguardandoKeys];
+      if (allKeys.length > 0) {
+        markAlertsAsVisualized(marcaId, allKeys);
+      }
     }
   }, []);
 
@@ -147,6 +170,9 @@ export default function AlertasPage() {
       sessionStorage.setItem(DISMISSED_KEY, JSON.stringify(atualizado));
     } catch {
       // ignora se sessionStorage não estiver disponível
+    }
+    if (marcaAtiva) {
+      markAlertAsVisualized(marcaAtiva.marcaId, getAvisoAlertKey(avisoId));
     }
   };
 
@@ -244,20 +270,38 @@ export default function AlertasPage() {
           </p>
         </div>
 
-        {podeEscrever && (
+        <div className="flex items-center gap-2 self-start md:self-auto">
           <button
             onClick={() => {
-              setAvisoTitulo("");
-              setAvisoMensagem("");
-              setAvisoError("");
-              setIsAvisoModalOpen(true);
+              if (!marcaAtiva) return;
+              const expiradosKeys = prazosVencidos.map((r) => getRepAlertKey(r.id, "expired"));
+              const aguardandoKeys = aguardandoOficio.map((r) => getRepAlertKey(r.id, "waiting_letter"));
+              const avisosKeys = avisos.map((a) => getAvisoAlertKey(a.id));
+              markAlertsAsVisualized(marcaAtiva.marcaId, [...expiradosKeys, ...aguardandoKeys, ...avisosKeys]);
+              toast({ description: "Todos os alertas foram marcados como visualizados." });
             }}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-primary-foreground font-semibold text-xs px-4 py-2.5 rounded-xl shrink-0 shadow-sm transition-colors self-start md:self-auto"
+            className="flex items-center gap-1.5 bg-muted/60 hover:bg-muted text-foreground font-semibold text-xs px-3.5 py-2.5 rounded-xl shrink-0 border border-border shadow-sm transition-colors cursor-pointer"
+            title="Marcar todos os alertas atuais como lidos"
           >
-            <Plus size={16} />
-            Novo Aviso
+            <CheckCheck size={15} className="text-emerald-500" />
+            Marcar lidos
           </button>
-        )}
+
+          {podeEscrever && (
+            <button
+              onClick={() => {
+                setAvisoTitulo("");
+                setAvisoMensagem("");
+                setAvisoError("");
+                setIsAvisoModalOpen(true);
+              }}
+              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-primary-foreground font-semibold text-xs px-4 py-2.5 rounded-xl shrink-0 shadow-sm transition-colors self-start md:self-auto cursor-pointer"
+            >
+              <Plus size={16} />
+              Novo Aviso
+            </button>
+          )}
+        </div>
       </div>
 
       {/* KPI Stats Cards */}

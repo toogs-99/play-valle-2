@@ -25,6 +25,14 @@ import {
   Mail,
   Megaphone
 } from "lucide-react";
+import {
+  getVisualizedAlerts,
+  markAlertAsVisualized,
+  markAlertsAsVisualized,
+  getRepAlertKey,
+  getAvisoAlertKey,
+  LICITFLOW_ALERTS_UPDATED_EVENT,
+} from "@/lib/alertsStorage";
 
 interface SidebarItem {
   name: string;
@@ -36,12 +44,15 @@ interface SidebarItem {
 
 interface Notificacao {
   id: string;
-  tipo: "vencido" | "aguardando";
+  key: string;
+  tipo: "vencido" | "aguardando" | "aviso";
   nome: string;
-  cidade: string;
-  ataId: string;
-  ataNumero: string;
-  waitingDeadline: string;
+  cidade?: string;
+  ataId?: string;
+  ataNumero?: string;
+  waitingDeadline?: string;
+  mensagem?: string;
+  visualizado: boolean;
 }
 
 interface MarcaSessao {
@@ -111,25 +122,31 @@ export default function DashboardShell({
       const marcaRes = await fetch("/api/marca-ativa");
       if (!marcaRes.ok) return;
       const { marcaAtiva } = await marcaRes.json();
+      if (!marcaAtiva?.marcaId) return;
 
-      const [vencidosRes, aguardandoRes] = await Promise.all([
+      const [vencidosRes, aguardandoRes, avisosRes] = await Promise.all([
         fetch(`/api/representantes?marcaId=${marcaAtiva.marcaId}&status=expired`),
         fetch(`/api/representantes?marcaId=${marcaAtiva.marcaId}&status=waiting_letter`),
+        fetch(`/api/avisos?marcaId=${marcaAtiva.marcaId}`),
       ]);
 
+      const visualized = new Set(getVisualizedAlerts(marcaAtiva.marcaId));
       const itens: Notificacao[] = [];
 
       if (vencidosRes.ok) {
         const { representantes } = await vencidosRes.json();
         for (const r of representantes) {
+          const key = getRepAlertKey(r.id, "expired");
           itens.push({
             id: r.id,
+            key,
             tipo: "vencido",
             nome: r.nome,
             cidade: r.cidade,
-            ataId: r.ata.id,
-            ataNumero: r.ata.numero,
+            ataId: r.ata?.id,
+            ataNumero: r.ata?.numero,
             waitingDeadline: r.waitingDeadline,
+            visualizado: visualized.has(key),
           });
         }
       }
@@ -137,19 +154,46 @@ export default function DashboardShell({
       if (aguardandoRes.ok) {
         const { representantes } = await aguardandoRes.json();
         for (const r of representantes) {
+          const key = getRepAlertKey(r.id, "waiting_letter");
           itens.push({
             id: r.id,
+            key,
             tipo: "aguardando",
             nome: r.nome,
             cidade: r.cidade,
-            ataId: r.ata.id,
-            ataNumero: r.ata.numero,
+            ataId: r.ata?.id,
+            ataNumero: r.ata?.numero,
             waitingDeadline: r.waitingDeadline,
+            visualizado: visualized.has(key),
           });
         }
       }
 
-      itens.sort((a, b) => new Date(a.waitingDeadline).getTime() - new Date(b.waitingDeadline).getTime());
+      if (avisosRes.ok) {
+        const { avisos } = await avisosRes.json();
+        for (const a of avisos) {
+          const key = getAvisoAlertKey(a.id);
+          itens.push({
+            id: a.id,
+            key,
+            tipo: "aviso",
+            nome: a.titulo,
+            mensagem: a.mensagem,
+            visualizado: visualized.has(key),
+          });
+        }
+      }
+
+      itens.sort((a, b) => {
+        // Alertas não visualizados primeiro
+        if (!a.visualizado && b.visualizado) return -1;
+        if (a.visualizado && !b.visualizado) return 1;
+        if (a.waitingDeadline && b.waitingDeadline) {
+          return new Date(a.waitingDeadline).getTime() - new Date(b.waitingDeadline).getTime();
+        }
+        return 0;
+      });
+
       setNotificacoes(itens);
     } catch {
       setNotificacoes([]);
@@ -160,6 +204,18 @@ export default function DashboardShell({
 
   useEffect(() => {
     fetchNotificacoes();
+
+    const handleUpdate = () => {
+      fetchNotificacoes();
+    };
+
+    window.addEventListener(LICITFLOW_ALERTS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener(LICITFLOW_ALERTS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, [fetchNotificacoes]);
 
   // Resolve as marcas que o usuário logado realmente tem acesso, e sincroniza
@@ -254,6 +310,10 @@ export default function DashboardShell({
     }
   };
 
+  const unviewedCount = notificacoes.filter((n) => !n.visualizado).length;
+  const unviewedVencidos = notificacoes.filter((n) => n.tipo === "vencido" && !n.visualizado).length;
+  const totalAguardando = notificacoes.filter((n) => n.tipo === "aguardando").length;
+
   const navigation: SidebarItem[] = [
     {
       name: "Painel Geral",
@@ -264,8 +324,13 @@ export default function DashboardShell({
       name: "Alertas",
       href: "/alertas",
       icon: Bell,
-      badge: "4 Vencidos",
-      badgeType: "danger",
+      badge:
+        unviewedVencidos > 0
+          ? `${unviewedVencidos} Vencido${unviewedVencidos > 1 ? "s" : ""}`
+          : unviewedCount > 0
+          ? `${unviewedCount} Novo${unviewedCount > 1 ? "s" : ""}`
+          : undefined,
+      badgeType: unviewedVencidos > 0 ? "danger" : "warning",
     },
     {
       name: "Atas de Preço",
@@ -276,7 +341,7 @@ export default function DashboardShell({
       name: "Representantes",
       href: "/representantes",
       icon: Users,
-      badge: "Aguardando",
+      badge: totalAguardando > 0 ? `${totalAguardando} Aguardando` : undefined,
       badgeType: "warning",
     },
     {
@@ -686,8 +751,9 @@ export default function DashboardShell({
                   setProfileDropdownOpen(false);
                 }}
                 className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 active:bg-slate-200 active:scale-95 rounded-xl border border-slate-200/50 cursor-pointer transition-all duration-150"
+                title={unviewedCount > 0 ? `${unviewedCount} alerta(s) não visualizado(s)` : "Notificações"}
               >
-                {notificacoes.length > 0 && (
+                {unviewedCount > 0 && (
                   <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E97826] opacity-75" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-[#E97826] ring-2 ring-white" />
@@ -704,11 +770,29 @@ export default function DashboardShell({
                   />
                   <div className="absolute right-0 mt-2 w-80 origin-top-right rounded-xl bg-white shadow-lg shadow-slate-100 border border-slate-150 ring-1 ring-black/5 focus:outline-none z-30 animate-in fade-in duration-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                      <p className="text-xs font-bold text-slate-800">Notificações</p>
-                      {notificacoes.length > 0 && (
-                        <span className="text-[10px] text-slate-450 font-medium">
-                          {notificacoes.length} pendente{notificacoes.length === 1 ? "" : "s"}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-slate-800">Notificações</p>
+                        {unviewedCount > 0 ? (
+                          <span className="text-[10px] bg-rose-50 text-rose-600 font-semibold px-1.5 py-0.5 rounded border border-rose-100">
+                            {unviewedCount} nova{unviewedCount === 1 ? "" : "s"}
+                          </span>
+                        ) : notificacoes.length > 0 ? (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Todas lidas
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {unviewedCount > 0 && marcaAtivaId && (
+                        <button
+                          onClick={() => {
+                            const unviewedKeys = notificacoes.filter((n) => !n.visualizado).map((n) => n.key);
+                            markAlertsAsVisualized(marcaAtivaId, unviewedKeys);
+                          }}
+                          className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                        >
+                          Marcar como lidas
+                        </button>
                       )}
                     </div>
 
@@ -724,29 +808,62 @@ export default function DashboardShell({
                       ) : (
                         notificacoes.slice(0, 8).map((n) => (
                           <button
-                            key={n.id}
+                            key={n.key}
                             onClick={() => {
+                              if (marcaAtivaId && !n.visualizado) {
+                                markAlertAsVisualized(marcaAtivaId, n.key);
+                              }
                               setNotificationsOpen(false);
-                              router.push(`/atas/${n.ataId}`);
+                              if (n.ataId) {
+                                router.push(`/atas/${n.ataId}`);
+                              } else {
+                                router.push("/alertas");
+                              }
                             }}
-                            className="w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors"
+                            className={`w-full flex items-start gap-2.5 px-4 py-3 text-left hover:bg-slate-50 active:bg-slate-100 cursor-pointer transition-colors relative ${
+                              !n.visualizado ? "bg-amber-50/20" : ""
+                            }`}
                           >
                             <div className={`h-6 w-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                              n.tipo === "vencido" ? "bg-rose-50 text-rose-600" : "bg-amber-50 text-amber-600"
+                              n.tipo === "vencido"
+                                ? "bg-rose-50 text-rose-600"
+                                : n.tipo === "aguardando"
+                                ? "bg-amber-50 text-amber-600"
+                                : "bg-blue-50 text-blue-600"
                             }`}>
-                              {n.tipo === "vencido" ? <AlertTriangle size={13} /> : <Clock size={13} />}
+                              {n.tipo === "vencido" ? (
+                                <AlertTriangle size={13} />
+                              ) : n.tipo === "aguardando" ? (
+                                <Clock size={13} />
+                              ) : (
+                                <Megaphone size={13} />
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-slate-800 truncate">{n.nome}</p>
-                              <p className="text-[10px] text-slate-450 truncate">
-                                {n.ataNumero} · {n.cidade}
-                              </p>
-                              <p className={`text-[10px] font-semibold mt-0.5 ${
-                                n.tipo === "vencido" ? "text-rose-600" : "text-amber-600"
-                              }`}>
-                                {n.tipo === "vencido" ? "Prazo vencido em " : "Prazo até "}
-                                {new Date(n.waitingDeadline).toLocaleDateString("pt-BR")}
-                              </p>
+                              <div className="flex items-center justify-between gap-1">
+                                <p className="text-xs font-semibold text-slate-800 truncate">{n.nome}</p>
+                                {!n.visualizado && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#E97826] shrink-0" />
+                                )}
+                              </div>
+                              {n.ataNumero && (
+                                <p className="text-[10px] text-slate-450 truncate">
+                                  {n.ataNumero}{n.cidade ? ` · ${n.cidade}` : ""}
+                                </p>
+                              )}
+                              {n.mensagem && (
+                                <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5">
+                                  {n.mensagem}
+                                </p>
+                              )}
+                              {n.waitingDeadline && (
+                                <p className={`text-[10px] font-semibold mt-0.5 ${
+                                  n.tipo === "vencido" ? "text-rose-600" : "text-amber-600"
+                                }`}>
+                                  {n.tipo === "vencido" ? "Prazo vencido em " : "Prazo até "}
+                                  {new Date(n.waitingDeadline).toLocaleDateString("pt-BR")}
+                                </p>
+                              )}
                             </div>
                           </button>
                         ))
@@ -821,7 +938,12 @@ export default function DashboardShell({
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-slate-200 z-35 flex items-center justify-around px-2 pb-[env(safe-area-inset-bottom,0px)] shadow-lg shadow-slate-100">
         {[
           { name: "Painel", href: "/dashboard", icon: TrendingUp },
-          { name: "Alertas", href: "/alertas", icon: Bell, badge: "4" },
+          {
+            name: "Alertas",
+            href: "/alertas",
+            icon: Bell,
+            badge: unviewedCount > 0 ? String(unviewedCount) : undefined,
+          },
           { name: "Atas", href: "/atas", icon: FileText },
           { name: "Mais", href: "#", icon: Menu, action: () => setSidebarOpen(true) }
         ].map((item, idx) => {
