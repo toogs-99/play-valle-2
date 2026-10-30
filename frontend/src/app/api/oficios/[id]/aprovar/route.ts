@@ -28,6 +28,13 @@ export async function POST(
     );
   }
 
+  if (!oficio.autorizacaoArquivoBase64) {
+    return NextResponse.json(
+      { error: "Anexe o PDF da autorização de controle interno antes de homologar o ofício." },
+      { status: 422 }
+    );
+  }
+
   const ata = await prisma.ata.findUnique({
     where: { id: oficio.representante.ataId },
     select: { id: true, valorAta: true },
