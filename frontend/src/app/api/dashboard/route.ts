@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     vendasPagasUltimoAno,
     topVendedoresRaw,
     topAtasRaw,
+    atasComContratos,
   ] = await Promise.all([
     prisma.ata.count({ where: { marcaId } }),
     prisma.representante.count({ where: { marcaId } }),
@@ -61,7 +62,49 @@ export async function GET(request: Request) {
       orderBy: { _sum: { valor: "desc" } },
       take: 5,
     }),
+    prisma.ata.findMany({
+      where: { marcaId },
+      select: {
+        id: true,
+        numero: true,
+        orgao: true,
+        valorAta: true,
+        contratos: {
+          select: {
+            valorSolicitado: true,
+            valorContratado: true,
+            empenhos: { select: { valor: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
+
+  // Controle de saldo: o valor da ata é o teto; o que conta como negociado é o
+  // valor dos contratos firmados (normalmente menor que o solicitado).
+  const saldoAtas = atasComContratos.map((ata) => {
+    const valorAta = decimalParaNumero(ata.valorAta);
+    let solicitado = 0;
+    let contratado = 0;
+    let empenhado = 0;
+    for (const c of ata.contratos) {
+      solicitado += decimalParaNumero(c.valorSolicitado);
+      contratado += decimalParaNumero(c.valorContratado);
+      for (const e of c.empenhos) empenhado += decimalParaNumero(e.valor);
+    }
+    return {
+      id: ata.id,
+      numero: ata.numero,
+      orgao: ata.orgao,
+      valorAta,
+      solicitado,
+      contratado,
+      empenhado,
+      saldo: valorAta - contratado,
+      totalContratos: ata.contratos.length,
+    };
+  });
 
   // Receita mensal (últimos 12 meses, baseada na data de pagamento).
   const receitaPorMes = new Map<string, number>();
@@ -119,7 +162,11 @@ export async function GET(request: Request) {
       totalAutorizacoes,
       faturamentoPago: decimalParaNumero(faturamentoPagoAgg._sum.valor),
       faturamentoPendente: decimalParaNumero(faturamentoPendenteAgg._sum.valor),
+      totalContratado: saldoAtas.reduce((acc, a) => acc + a.contratado, 0),
+      totalEmpenhado: saldoAtas.reduce((acc, a) => acc + a.empenhado, 0),
+      saldoDisponivel: saldoAtas.reduce((acc, a) => acc + a.saldo, 0),
     },
+    saldoAtas,
     receitaMensal,
     topVendedores,
     topAtas,

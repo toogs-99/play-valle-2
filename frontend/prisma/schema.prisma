@@ -44,6 +44,7 @@ model Marca {
   whatsappMetricas    WhatsappMetrica[]
   whatsappTemplates   WhatsappTemplate[]
   vendas              Venda[]
+  contratos           Contrato[]
   integracaoEmail     IntegracaoEmail?
   emailsEnviados      EmailEnviado[]
   avisos              Aviso[]
@@ -94,6 +95,7 @@ model Ata {
   marca          Marca           @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   representantes Representante[]
   vendas         Venda[]
+  contratos      Contrato[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -113,8 +115,9 @@ model Representante {
 
   marca   Marca    @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   ata     Ata      @relation(fields: [ataId], references: [id], onDelete: Cascade)
-  oficios Oficio[]
-  vendas  Venda[]
+  oficios   Oficio[]
+  vendas    Venda[]
+  contratos Contrato[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -394,4 +397,56 @@ model Aviso {
 
   @@index([marcaId, ativo])
   @@map("avisos")
+}
+
+enum TipoEmpenho {
+  nota_empenho
+  ordem_compra
+}
+
+// Contrato efetivamente firmado a partir de uma Ata. Registra o valor
+// solicitado inicialmente pela prefeitura e o valor realmente contratado
+// (costuma ser menor, já que a prefeitura adquire só parte dos itens). O saldo
+// da Ata é valorAta menos a soma dos valorContratado. Modelo provisório: o
+// formato final será ajustado após validação com o cliente.
+model Contrato {
+  id              String   @id @default(cuid())
+  marcaId         String
+  ataId           String
+  representanteId String?
+  numero          String
+  valorSolicitado Decimal  @db.Decimal(12, 2)
+  valorContratado Decimal  @db.Decimal(12, 2)
+  assinadoEm      DateTime @default(now())
+
+  marca         Marca          @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  ata           Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  representante Representante? @relation(fields: [representanteId], references: [id], onDelete: SetNull)
+  empenhos      Empenho[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([marcaId, numero])
+  @@index([marcaId])
+  @@index([ataId])
+  @@map("contratos")
+}
+
+// Nota de empenho ou ordem de compra emitida contra um Contrato.
+model Empenho {
+  id         String      @id @default(cuid())
+  contratoId String
+  tipo       TipoEmpenho
+  numero     String
+  valor      Decimal     @db.Decimal(12, 2)
+  emitidoEm  DateTime    @default(now())
+
+  contrato Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([contratoId, numero])
+  @@index([contratoId])
+  @@map("empenhos")
 }
