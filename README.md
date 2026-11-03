@@ -41,9 +41,14 @@ npx prisma migrate dev
 # 5. Popular o banco (cria as marcas + usuário admin)
 npm run prisma:seed
 
-# 6. Subir o servidor
+# 6. (Opcional) Carregar dados fictícios de contratos e empenhos para demonstração
+npm run prisma:seed-demo
+
+# 7. Subir o servidor
 npm run dev
 ```
+
+O seed de demonstração cria atas, contratos e notas de empenho/ordens de compra com o prefixo `DEMO` no número, para o painel de saldo poder ser avaliado. É idempotente e não deve ser usado em produção.
 
 A aplicação sobe em **http://localhost:3001** (porta customizada — ver `package.json`).
 
