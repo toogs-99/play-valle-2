@@ -51,6 +51,7 @@ interface Oficio {
   status: StatusOficio;
   arquivoNomeOriginal: string;
   sentAt: string;
+  autorizacaoArquivoNome: string | null;
   representante: { id: string; nome: string; cidade: string };
   autorizacao: { id: string; numero: string; dataEmissao: string } | null;
 }
@@ -69,6 +70,53 @@ interface MarcaAtiva {
 }
 
 const PAPEIS_ESCRITA = ["admin", "gestor_atas"];
+
+const MSG_ANEXAR_AUTORIZACAO = "Anexe o PDF da autorização de controle interno para liberar a homologação.";
+
+function AutorizacaoUpload({
+  oficio,
+  uploading,
+  onSelect,
+}: {
+  oficio: Oficio;
+  uploading: boolean;
+  onSelect: (oficioId: string, file: File) => void;
+}) {
+  const anexado = !!oficio.autorizacaoArquivoNome;
+
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] font-text">
+      {anexado && (
+        <button
+          type="button"
+          onClick={() => window.open(`/api/oficios/${oficio.id}/autorizacao-arquivo`, "_blank")}
+          className="flex items-center gap-1 underline text-primary font-medium cursor-pointer"
+        >
+          <FileText size={12} className="text-muted-foreground" />
+          <span className="truncate max-w-[120px]">{oficio.autorizacaoArquivoNome}</span>
+        </button>
+      )}
+      <label
+        className={`flex items-center gap-1 border border-border bg-background hover:bg-muted/40 font-semibold px-2 py-1 rounded-lg transition-colors ${
+          uploading ? "opacity-50 pointer-events-none" : "cursor-pointer"
+        }`}
+      >
+        <Upload size={12} />
+        {uploading ? "Enviando..." : anexado ? "Trocar autorização" : "Anexar autorização"}
+        <input
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) onSelect(oficio.id, file);
+          }}
+        />
+      </label>
+    </div>
+  );
+}
 
 export default function AtaDetailPage({
   params,
@@ -122,6 +170,7 @@ export default function AtaDetailPage({
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [whatsappSelectedRep, setWhatsappSelectedRep] = useState("other");
   const [processingOficioId, setProcessingOficioId] = useState<string | null>(null);
+  const [uploadingAutorizacaoId, setUploadingAutorizacaoId] = useState<string | null>(null);
   const [isEditingValor, setIsEditingValor] = useState(false);
   const [valorAtaForm, setValorAtaForm] = useState("");
   const [savingValor, setSavingValor] = useState(false);
@@ -397,6 +446,46 @@ export default function AtaDetailPage({
       setUploadError("Erro de rede ao anexar ofício.");
     } finally {
       setUploadSubmitting(false);
+    }
+  };
+
+  const handleUploadAutorizacao = async (oficioId: string, file: File) => {
+    if (!marcaAtiva) return;
+    if (file.type !== "application/pdf") {
+      toast({ description: "Apenas arquivos PDF são aceitos." });
+      return;
+    }
+
+    setUploadingAutorizacaoId(oficioId);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(((reader.result as string).split(",")[1]) || "");
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch(`/api/oficios/${oficioId}/autorizacao-arquivo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          arquivoBase64: base64,
+          arquivoMimeType: file.type,
+          arquivoNomeOriginal: file.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ description: data.error || "Falha ao anexar autorização." });
+        return;
+      }
+
+      await refreshAll(marcaAtiva.marcaId);
+      toast({ description: "Autorização anexada. Já é possível homologar o ofício." });
+    } catch {
+      toast({ description: "Erro ao anexar autorização." });
+    } finally {
+      setUploadingAutorizacaoId(null);
     }
   };
 
@@ -911,11 +1000,20 @@ Representante Autorizado`;
                                 )}
 
                                 {podeEscrever && rep.status === "waiting_letter" && pendingOficio && (
+                                  <AutorizacaoUpload
+                                    oficio={pendingOficio}
+                                    uploading={uploadingAutorizacaoId === pendingOficio.id}
+                                    onSelect={handleUploadAutorizacao}
+                                  />
+                                )}
+
+                                {podeEscrever && rep.status === "waiting_letter" && pendingOficio && (
                                   <div className="grid grid-cols-2 gap-1.5">
                                     <button
                                       onClick={() => handleApprove(pendingOficio.id)}
-                                      disabled={processingOficioId === pendingOficio.id}
-                                      className="flex items-center justify-center gap-1 bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-foreground font-bold text-[10px] py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
+                                      disabled={processingOficioId === pendingOficio.id || !pendingOficio.autorizacaoArquivoNome}
+                                      title={pendingOficio.autorizacaoArquivoNome ? undefined : MSG_ANEXAR_AUTORIZACAO}
+                                      className="flex items-center justify-center gap-1 bg-primary hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-bold text-[10px] py-1.5 rounded-lg transition-colors shadow-sm cursor-pointer"
                                     >
                                       <Check size={12} className="stroke-[3]" />
                                       Homologar
@@ -1106,11 +1204,17 @@ Representante Autorizado`;
                         <td className="p-4 text-right">
                           {oficio.status === "pending" ? (
                             podeEscrever ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                <AutorizacaoUpload
+                                  oficio={oficio}
+                                  uploading={uploadingAutorizacaoId === oficio.id}
+                                  onSelect={handleUploadAutorizacao}
+                                />
                                 <button
                                   onClick={() => handleApprove(oficio.id)}
-                                  disabled={processingOficioId === oficio.id}
-                                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition-colors shadow-sm"
+                                  disabled={processingOficioId === oficio.id || !oficio.autorizacaoArquivoNome}
+                                  title={oficio.autorizacaoArquivoNome ? undefined : MSG_ANEXAR_AUTORIZACAO}
+                                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition-colors shadow-sm"
                                 >
                                   Homologar/Aprovar
                                 </button>

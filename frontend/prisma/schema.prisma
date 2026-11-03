@@ -134,6 +134,13 @@ model Oficio {
   arquivoBase64        String       @db.Text
   sentAt               DateTime     @default(now())
 
+  // PDF assinado da autorização de controle interno, anexado manualmente pelo
+  // usuário. Enquanto estiver vazio, o ofício não pode ser homologado.
+  autorizacaoArquivoNome      String?
+  autorizacaoArquivoMimeType  String?
+  autorizacaoArquivoBase64    String?  @db.Text
+  autorizacaoArquivoEnviadoEm DateTime?
+
   marca          Marca              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   representante  Representante      @relation(fields: [representanteId], references: [id], onDelete: Cascade)
   autorizacao    AutorizacaoAdesao?

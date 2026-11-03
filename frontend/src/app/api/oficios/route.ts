@@ -46,6 +46,8 @@ export async function GET(request: Request) {
       arquivoNomeOriginal: true,
       arquivoMimeType: true,
       sentAt: true,
+      autorizacaoArquivoNome: true,
+      autorizacaoArquivoEnviadoEm: true,
       createdAt: true,
       updatedAt: true,
       representante: {
