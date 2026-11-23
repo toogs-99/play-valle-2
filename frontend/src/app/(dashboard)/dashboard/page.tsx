@@ -41,6 +41,8 @@ interface VendaPendente {
   criadaEm: string;
   representante: { id: string; nome: string; cidade: string };
   ata: { id: string; numero: string };
+  quantidade: number;
+  itemAta: { id: string; descricao: string; unidade: string } | null;
 }
 
 const PAPEIS_MARCAR_PAGA = ["admin", "financeiro"];
@@ -348,6 +350,7 @@ export default function DashboardPage() {
                 <tr className="border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase font-text">
                   <th className="p-4">Representante</th>
                   <th className="p-4">Ata</th>
+                  <th className="p-4">Produto</th>
                   <th className="p-4">Criada Em</th>
                   <th className="p-4 text-right">Valor</th>
                   <th className="p-4 text-right">Ação</th>
@@ -358,6 +361,9 @@ export default function DashboardPage() {
                   <tr key={venda.id} className="hover:bg-muted/20 transition-colors">
                     <td className="p-4 font-semibold text-foreground font-text">{venda.representante.nome}</td>
                     <td className="p-4 text-muted-foreground font-text">{venda.ata.numero}</td>
+                    <td className="p-4 text-muted-foreground font-text">
+                      {venda.itemAta ? `${venda.quantidade} ${venda.itemAta.unidade} × ${venda.itemAta.descricao}` : "—"}
+                    </td>
                     <td className="p-4 text-muted-foreground font-text">
                       {new Date(venda.criadaEm).toLocaleDateString("pt-BR")}
                     </td>

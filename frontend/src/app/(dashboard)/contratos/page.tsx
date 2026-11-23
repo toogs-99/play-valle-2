@@ -309,10 +309,14 @@ export default function ContratosPage() {
               </div>
             )}
             {podeEscrever && (
-              <form onSubmit={adicionarProduto} className="p-4 border-t border-border grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+              <form onSubmit={adicionarProduto} className="p-4 border-t border-border grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
                 <div className="col-span-2">
                   <label className={labelCls}>Produto *</label>
                   <input className={inputCls} value={pDesc} onChange={(e) => setPDesc(e.target.value)} required />
+                </div>
+                <div>
+                  <label className={labelCls}>Unidade</label>
+                  <input className={inputCls} value={pUn} onChange={(e) => setPUn(e.target.value)} />
                 </div>
                 <div>
                   <label className={labelCls}>Valor unit. (R$) *</label>
