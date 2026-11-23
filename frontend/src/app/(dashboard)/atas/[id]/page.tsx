@@ -126,6 +126,12 @@ export default function AtaDetailPage({
   const [valorAtaForm, setValorAtaForm] = useState("");
   const [savingValor, setSavingValor] = useState(false);
 
+  // Homologação: escolha do produto vendido (valor da venda = produto x qtd)
+  const [itensAta, setItensAta] = useState<{ id: string; descricao: string; unidade: string; valorUnitario: number; saldoQuantidade: number }[]>([]);
+  const [oficioParaAprovar, setOficioParaAprovar] = useState<string | null>(null);
+  const [aprovarItemId, setAprovarItemId] = useState("");
+  const [aprovarQtd, setAprovarQtd] = useState("1");
+
   const fetchRepresentantes = useCallback(async (marcaId: string) => {
     const res = await fetch(`/api/representantes?marcaId=${marcaId}&ataId=${ataId}`);
     if (!res.ok) throw new Error("Falha ao carregar representantes.");
@@ -400,16 +406,36 @@ export default function AtaDetailPage({
     }
   };
 
-  const handleApprove = async (oficioId: string) => {
+  // Atas com produtos cadastrados pedem o produto vendido; as demais seguem
+  // o fluxo antigo (valor fixo da ata).
+  const iniciarAprovacao = async (oficioId: string) => {
+    const res = await fetch(`/api/atas/${ataId}/itens`);
+    const itens = res.ok ? (await res.json()).itens : [];
+    if (itens.length === 0) {
+      await handleApprove(oficioId);
+      return;
+    }
+    setItensAta(itens);
+    setAprovarItemId(itens[0].id);
+    setAprovarQtd("1");
+    setOficioParaAprovar(oficioId);
+  };
+
+  const handleApprove = async (oficioId: string, produto?: { itemAtaId: string; quantidade: number }) => {
     if (!marcaAtiva) return;
     setProcessingOficioId(oficioId);
     try {
-      const res = await fetch(`/api/oficios/${oficioId}/aprovar`, { method: "POST" });
+      const res = await fetch(`/api/oficios/${oficioId}/aprovar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(produto ?? {}),
+      });
       const data = await res.json();
       if (!res.ok) {
         toast({ description: data.error || "Falha ao aprovar ofício." });
         return;
       }
+      setOficioParaAprovar(null);
       await refreshAll(marcaAtiva.marcaId);
       const valorVenda = Number(data.venda?.valor ?? 0).toLocaleString("pt-BR", {
         style: "currency",
@@ -1108,7 +1134,7 @@ Representante Autorizado`;
                             podeEscrever ? (
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
-                                  onClick={() => handleApprove(oficio.id)}
+                                  onClick={() => iniciarAprovacao(oficio.id)}
                                   disabled={processingOficioId === oficio.id}
                                   className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-[10px] px-2.5 py-1 rounded-lg transition-colors shadow-sm"
                                 >
@@ -1463,6 +1489,53 @@ Representante Autorizado`;
                   Iniciar Conversa e Enviar
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {oficioParaAprovar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0" onClick={() => setOficioParaAprovar(null)} />
+          <div className="bg-card border border-border rounded-3xl shadow-2xl p-6 w-full max-w-md relative z-10 space-y-4">
+            <h3 className="font-bold text-sm text-foreground font-display">Produto vendido</h3>
+            <p className="text-xs text-muted-foreground font-text">
+              A venda será registrada apenas com o valor do produto escolhido, não com o total da ata.
+            </p>
+            <select
+              value={aprovarItemId}
+              onChange={(e) => setAprovarItemId(e.target.value)}
+              className="w-full px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs text-foreground font-text"
+            >
+              {itensAta.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.descricao} — {i.valorUnitario.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/{i.unidade}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={aprovarQtd}
+              onChange={(e) => setAprovarQtd(e.target.value)}
+              className="w-full px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs text-foreground font-text"
+              placeholder="Quantidade"
+            />
+            <div className="flex gap-3 pt-2 border-t border-border">
+              <button
+                onClick={() => setOficioParaAprovar(null)}
+                className="flex-1 px-4 py-2 border border-border rounded-xl text-xs font-semibold text-foreground hover:bg-muted"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleApprove(oficioParaAprovar, { itemAtaId: aprovarItemId, quantidade: Number(aprovarQtd) })}
+                disabled={processingOficioId === oficioParaAprovar}
+                className="flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold"
+              >
+                Homologar
+              </button>
             </div>
           </div>
         </div>
