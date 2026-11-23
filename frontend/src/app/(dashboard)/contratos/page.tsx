@@ -21,16 +21,25 @@ interface ItemSaldo {
   saldoValor: number;
 }
 
+interface Empenho {
+  id: string;
+  tipo: "nota_empenho" | "ordem_compra";
+  numero: string;
+  valor: string;
+  emitidoEm: string;
+}
+
 interface Contrato {
   id: string;
   ataId: string;
-  tipo: "contrato" | "empenho";
   numero: string;
-  municipio: string;
-  data: string;
+  municipio: string | null;
+  assinadoEm: string;
   observacao: string | null;
-  valorTotal: number;
+  valorContratado: string;
+  valorEmpenhado: number;
   ata: Ata;
+  empenhos: Empenho[];
   itens: {
     id: string;
     quantidade: number;
@@ -71,11 +80,15 @@ export default function ContratosPage() {
   const [pQtd, setPQtd] = useState("");
 
   // Form: novo contrato/empenho
-  const [cTipo, setCTipo] = useState<"empenho" | "contrato">("empenho");
   const [cNumero, setCNumero] = useState("");
   const [cMunicipio, setCMunicipio] = useState("");
   const [cData, setCData] = useState(() => new Date().toISOString().slice(0, 10));
   const [cObs, setCObs] = useState("");
+  // Form: novo empenho (por contrato aberto)
+  const [eContratoId, setEContratoId] = useState<string | null>(null);
+  const [eTipo, setETipo] = useState<"nota_empenho" | "ordem_compra">("nota_empenho");
+  const [eNumero, setENumero] = useState("");
+  const [eValor, setEValor] = useState("");
   const [cQtds, setCQtds] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -184,14 +197,29 @@ export default function ContratosPage() {
       .map(([itemAtaId, q]) => ({ itemAtaId, quantidade: Number(q) }));
     const ok = await enviar(
       "/api/contratos",
-      { ataId, tipo: cTipo, numero: cNumero, municipio: cMunicipio, data: cData, observacao: cObs, itens: linhas },
-      "Lançamento registrado e abatido da ata."
+      { ataId, numero: cNumero, municipio: cMunicipio, data: cData, observacao: cObs, itens: linhas },
+      "Contrato registrado e abatido da ata."
     );
     if (ok) {
       setCNumero("");
       setCMunicipio("");
       setCObs("");
       setCQtds({});
+    }
+  }
+
+  async function lancarEmpenho(e: React.FormEvent) {
+    e.preventDefault();
+    if (!eContratoId) return;
+    const ok = await enviar(
+      `/api/contratos/${eContratoId}/empenhos`,
+      { tipo: eTipo, numero: eNumero, valor: Number(eValor) },
+      "Empenho registrado."
+    );
+    if (ok) {
+      setEContratoId(null);
+      setENumero("");
+      setEValor("");
     }
   }
 
@@ -336,15 +364,8 @@ export default function ContratosPage() {
           {/* Novo lançamento */}
           {podeEscrever && itens.length > 0 && (
             <form onSubmit={lancarContrato} className="bg-card border border-border rounded-[12px] p-4 space-y-4">
-              <h3 className="font-bold text-sm text-foreground font-display">Novo contrato / empenho</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                  <label className={labelCls}>Tipo</label>
-                  <select className={inputCls} value={cTipo} onChange={(e) => setCTipo(e.target.value as "empenho" | "contrato")}>
-                    <option value="empenho">Empenho</option>
-                    <option value="contrato">Contrato</option>
-                  </select>
-                </div>
+              <h3 className="font-bold text-sm text-foreground font-display">Novo contrato</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
                   <label className={labelCls}>Número *</label>
                   <input className={inputCls} value={cNumero} onChange={(e) => setCNumero(e.target.value)} required />
@@ -354,7 +375,7 @@ export default function ContratosPage() {
                   <input className={inputCls} value={cMunicipio} onChange={(e) => setCMunicipio(e.target.value)} required />
                 </div>
                 <div>
-                  <label className={labelCls}>Data *</label>
+                  <label className={labelCls}>Data de assinatura *</label>
                   <input className={inputCls} type="date" value={cData} onChange={(e) => setCData(e.target.value)} required />
                 </div>
               </div>
@@ -396,41 +417,88 @@ export default function ContratosPage() {
           {/* Histórico */}
           <section className="bg-card border border-border rounded-[12px] overflow-hidden">
             <div className="p-4 border-b border-border">
-              <h3 className="font-bold text-sm text-foreground font-display">Lançamentos desta ata</h3>
+              <h3 className="font-bold text-sm text-foreground font-display">Contratos desta ata</h3>
             </div>
             {contratos.length === 0 ? (
-              <p className="p-6 text-xs text-muted-foreground font-text">Nenhum contrato ou empenho registrado.</p>
+              <p className="p-6 text-xs text-muted-foreground font-text">Nenhum contrato registrado.</p>
             ) : (
               <div className="divide-y divide-border">
                 {contratos.map((c) => (
-                  <div key={c.id} className="p-4 flex items-start justify-between gap-4">
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-foreground font-text">
-                        {c.tipo === "empenho" ? "Empenho" : "Contrato"} {c.numero} — {c.municipio}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground font-text">
-                        {new Date(c.data).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-                        {c.observacao ? ` · ${c.observacao}` : ""}
-                      </p>
-                      <ul className="text-[11px] text-foreground font-text">
-                        {c.itens.map((i) => (
-                          <li key={i.id}>
-                            {i.quantidade} {i.itemAta.unidade} × {i.itemAta.descricao} ({brl(Number(i.valorUnitario))})
+                  <div key={c.id} className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-foreground font-text">
+                          Contrato {c.numero}{c.municipio ? ` — ${c.municipio}` : ""}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-text">
+                          {new Date(c.assinadoEm).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                          {c.observacao ? ` · ${c.observacao}` : ""}
+                        </p>
+                        <ul className="text-[11px] text-foreground font-text">
+                          {c.itens.map((i) => (
+                            <li key={i.id}>
+                              {i.quantidade} {i.itemAta.unidade} × {i.itemAta.descricao} ({brl(Number(i.valorUnitario))})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-extrabold text-foreground font-text">{brl(Number(c.valorContratado))}</p>
+                        <p className="text-[10px] text-muted-foreground font-text">
+                          empenhado {brl(c.valorEmpenhado)}
+                        </p>
+                        {podeEscrever && (
+                          <button
+                            onClick={() => remover(`/api/contratos/${c.id}`, "Excluir este contrato? Os itens voltam ao saldo da ata e os empenhos são removidos.")}
+                            className="mt-1 text-[10px] text-rose-600 hover:underline"
+                          >
+                            Excluir
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {c.empenhos.length > 0 && (
+                      <ul className="text-[11px] text-foreground font-text bg-muted/30 rounded-xl divide-y divide-border">
+                        {c.empenhos.map((e) => (
+                          <li key={e.id} className="flex items-center justify-between px-3 py-1.5">
+                            <span>
+                              {e.tipo === "nota_empenho" ? "Nota de empenho" : "Ordem de compra"} {e.numero}
+                            </span>
+                            <span className="flex items-center gap-3">
+                              <b>{brl(Number(e.valor))}</b>
+                              {podeEscrever && (
+                                <button
+                                  onClick={() => remover(`/api/empenhos/${e.id}`, "Excluir este empenho?")}
+                                  className="text-muted-foreground hover:text-rose-600"
+                                  aria-label="Excluir empenho"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </span>
                           </li>
                         ))}
                       </ul>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-extrabold text-foreground font-text">{brl(c.valorTotal)}</p>
-                      {podeEscrever && (
-                        <button
-                          onClick={() => remover(`/api/contratos/${c.id}`, "Excluir este lançamento? Os itens voltam ao saldo da ata.")}
-                          className="mt-1 text-[10px] text-rose-600 hover:underline"
-                        >
-                          Excluir
+                    )}
+                    {podeEscrever &&
+                      (eContratoId === c.id ? (
+                        <form onSubmit={lancarEmpenho} className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
+                          <select className={inputCls} value={eTipo} onChange={(e) => setETipo(e.target.value as typeof eTipo)}>
+                            <option value="nota_empenho">Nota de empenho</option>
+                            <option value="ordem_compra">Ordem de compra</option>
+                          </select>
+                          <input className={inputCls} placeholder="Número" value={eNumero} onChange={(e) => setENumero(e.target.value)} required />
+                          <input className={inputCls} type="number" min={0.01} step="0.01" placeholder="Valor (R$)" value={eValor} onChange={(e) => setEValor(e.target.value)} required />
+                          <div className="flex gap-2">
+                            <button disabled={saving} className="flex-1 bg-primary text-primary-foreground font-semibold text-xs px-3 py-2 rounded-xl disabled:opacity-50">Salvar</button>
+                            <button type="button" onClick={() => setEContratoId(null)} className="px-3 py-2 border border-border rounded-xl text-xs">Cancelar</button>
+                          </div>
+                        </form>
+                      ) : (
+                        <button onClick={() => setEContratoId(c.id)} className="text-[11px] font-semibold text-primary hover:underline">
+                          + Lançar empenho / ordem de compra
                         </button>
-                      )}
-                    </div>
+                      ))}
                   </div>
                 ))}
               </div>
