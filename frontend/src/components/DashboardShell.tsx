@@ -338,6 +338,11 @@ export default function DashboardShell({
       icon: FileText,
     },
     {
+      name: "Contratos e Empenhos",
+      href: "/contratos",
+      icon: FileText,
+    },
+    {
       name: "Representantes",
       href: "/representantes",
       icon: Users,

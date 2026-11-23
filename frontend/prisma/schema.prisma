@@ -33,21 +33,21 @@ model Marca {
   id   String @id @default(cuid())
   nome String @unique
 
-  usuarios          UsuarioMarca[]
-  atas              Ata[]
-  representantes    Representante[]
-  oficios           Oficio[]
-  autorizacoes      AutorizacaoAdesao[]
-  integracaoMeta      IntegracaoMeta?
-  instagramMetricas   InstagramMetrica[]
-  integracaoWhatsapp  IntegracaoWhatsapp?
-  whatsappMetricas    WhatsappMetrica[]
-  whatsappTemplates   WhatsappTemplate[]
-  vendas              Venda[]
-  contratos           Contrato[]
-  integracaoEmail     IntegracaoEmail?
-  emailsEnviados      EmailEnviado[]
-  avisos              Aviso[]
+  usuarios           UsuarioMarca[]
+  atas               Ata[]
+  representantes     Representante[]
+  oficios            Oficio[]
+  autorizacoes       AutorizacaoAdesao[]
+  integracaoMeta     IntegracaoMeta?
+  instagramMetricas  InstagramMetrica[]
+  integracaoWhatsapp IntegracaoWhatsapp?
+  whatsappMetricas   WhatsappMetrica[]
+  whatsappTemplates  WhatsappTemplate[]
+  vendas             Venda[]
+  contratos          Contrato[]
+  integracaoEmail    IntegracaoEmail?
+  emailsEnviados     EmailEnviado[]
+  avisos             Aviso[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -85,16 +85,17 @@ model UsuarioMarca {
 }
 
 model Ata {
-  id          String  @id @default(cuid())
-  marcaId     String
-  orgao       String
-  numero      String
-  descricao   String?
-  valorAta    Decimal @default(0) @db.Decimal(12, 2)
+  id        String  @id @default(cuid())
+  marcaId   String
+  orgao     String
+  numero    String
+  descricao String?
+  valorAta  Decimal @default(0) @db.Decimal(12, 2)
 
   marca          Marca           @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   representantes Representante[]
   vendas         Venda[]
+  itens          ItemAta[]
   contratos      Contrato[]
 
   createdAt DateTime @default(now())
@@ -113,8 +114,8 @@ model Representante {
   status          StatusRepresentante @default(waiting_letter)
   waitingDeadline DateTime
 
-  marca   Marca    @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  ata     Ata      @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  marca     Marca      @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  ata       Ata        @relation(fields: [ataId], references: [id], onDelete: Cascade)
   oficios   Oficio[]
   vendas    Venda[]
   contratos Contrato[]
@@ -128,14 +129,14 @@ model Representante {
 }
 
 model Oficio {
-  id                   String       @id @default(cuid())
-  marcaId              String
-  representanteId      String
-  status               StatusOficio @default(pending)
-  arquivoNomeOriginal  String
-  arquivoMimeType      String
-  arquivoBase64        String       @db.Text
-  sentAt               DateTime     @default(now())
+  id                  String       @id @default(cuid())
+  marcaId             String
+  representanteId     String
+  status              StatusOficio @default(pending)
+  arquivoNomeOriginal String
+  arquivoMimeType     String
+  arquivoBase64       String       @db.Text
+  sentAt              DateTime     @default(now())
 
   // PDF assinado da autorização de controle interno, anexado manualmente pelo
   // usuário. Enquanto estiver vazio, o ofício não pode ser homologado.
@@ -144,10 +145,10 @@ model Oficio {
   autorizacaoArquivoBase64    String?  @db.Text
   autorizacaoArquivoEnviadoEm DateTime?
 
-  marca          Marca              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
-  representante  Representante      @relation(fields: [representanteId], references: [id], onDelete: Cascade)
-  autorizacao    AutorizacaoAdesao?
-  venda          Venda?
+  marca         Marca              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  representante Representante      @relation(fields: [representanteId], references: [id], onDelete: Cascade)
+  autorizacao   AutorizacaoAdesao?
+  venda         Venda?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -158,11 +159,11 @@ model Oficio {
 }
 
 model AutorizacaoAdesao {
-  id           String   @id @default(cuid())
-  marcaId      String
-  oficioId     String   @unique
-  numero       String   @unique
-  dataEmissao  DateTime @default(now())
+  id          String   @id @default(cuid())
+  marcaId     String
+  oficioId    String   @unique
+  numero      String   @unique
+  dataEmissao DateTime @default(now())
 
   marca  Marca  @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   oficio Oficio @relation(fields: [oficioId], references: [id], onDelete: Cascade)
@@ -188,7 +189,11 @@ model Venda {
   representanteId String
   ataId           String // redundante com representante.ataId, mas útil para consulta direta
   oficioId        String      @unique
-  valor           Decimal     @db.Decimal(12, 2)
+  // Produto (item da ata) efetivamente vendido. Nulo apenas em vendas antigas,
+  // criadas quando o valor ainda era o total da ata.
+  itemAtaId       String?
+  quantidade      Int         @default(1)
+  valor           Decimal     @db.Decimal(12, 2) // valorUnitario do item * quantidade
   status          StatusVenda @default(pendente)
   criadaEm        DateTime    @default(now())
   pagaEm          DateTime?
@@ -197,11 +202,13 @@ model Venda {
   representante Representante @relation(fields: [representanteId], references: [id], onDelete: Cascade)
   ata           Ata           @relation(fields: [ataId], references: [id], onDelete: Cascade)
   oficio        Oficio        @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+  itemAta       ItemAta?      @relation(fields: [itemAtaId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([marcaId])
+  @@index([itemAtaId])
   @@index([marcaId, status])
   @@index([representanteId])
   @@index([ataId])
@@ -227,14 +234,14 @@ model Configuracao {
 // O access token nunca é salvo em texto puro — sempre criptografado
 // (ver src/lib/crypto.ts) e nunca devolvido pela API.
 model IntegracaoMeta {
-  id                        String    @id @default(cuid())
-  marcaId                   String    @unique
-  instagramContaId          String? // Instagram Business Account ID (Graph API)
-  accessTokenCriptografado  String? // token de longa duração, criptografado (AES-256-GCM)
-  tokenExpiraEm             DateTime?
-  ativo                     Boolean   @default(false)
-  ultimaSincronizacao       DateTime?
-  ultimoErro                String? // mensagem da última falha de sync, para debug
+  id                       String    @id @default(cuid())
+  marcaId                  String    @unique
+  instagramContaId         String? // Instagram Business Account ID (Graph API)
+  accessTokenCriptografado String? // token de longa duração, criptografado (AES-256-GCM)
+  tokenExpiraEm            DateTime?
+  ativo                    Boolean   @default(false)
+  ultimaSincronizacao      DateTime?
+  ultimoErro               String? // mensagem da última falha de sync, para debug
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -247,15 +254,15 @@ model IntegracaoMeta {
 // Snapshot periódico das métricas do Instagram Insights para uma marca.
 // Uma linha por sincronização — permite montar séries históricas.
 model InstagramMetrica {
-  id           String   @id @default(cuid())
-  marcaId      String
-  capturadoEm  DateTime @default(now())
-  seguidores   Int
-  alcance      Int
-  impressoes   Int
-  engajamento  Float
-  curtidas     Int
-  comentarios  Int
+  id          String   @id @default(cuid())
+  marcaId     String
+  capturadoEm DateTime @default(now())
+  seguidores  Int
+  alcance     Int
+  impressoes  Int
+  engajamento Float
+  curtidas    Int
+  comentarios Int
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -277,15 +284,15 @@ enum StatusTemplateWhatsapp {
 // O token nunca é salvo em texto puro — sempre criptografado (src/lib/crypto.ts)
 // e nunca devolvido pela API.
 model IntegracaoWhatsapp {
-  id                        String    @id @default(cuid())
-  marcaId                   String    @unique
-  wabaId                    String? // WhatsApp Business Account ID
-  phoneNumberId             String? // Phone Number ID cadastrado na Cloud API
-  accessTokenCriptografado  String? // token de sistema/longa duração, criptografado (AES-256-GCM)
-  tokenExpiraEm             DateTime?
-  ativo                     Boolean   @default(false)
-  ultimaSincronizacao       DateTime?
-  ultimoErro                String? // mensagem da última falha de sync, para debug
+  id                       String    @id @default(cuid())
+  marcaId                  String    @unique
+  wabaId                   String? // WhatsApp Business Account ID
+  phoneNumberId            String? // Phone Number ID cadastrado na Cloud API
+  accessTokenCriptografado String? // token de sistema/longa duração, criptografado (AES-256-GCM)
+  tokenExpiraEm            DateTime?
+  ativo                    Boolean   @default(false)
+  ultimaSincronizacao      DateTime?
+  ultimoErro               String? // mensagem da última falha de sync, para debug
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -297,13 +304,13 @@ model IntegracaoWhatsapp {
 
 // Snapshot periódico das métricas de Conversation Analytics da Cloud API.
 model WhatsappMetrica {
-  id                   String   @id @default(cuid())
-  marcaId              String
-  capturadoEm          DateTime @default(now())
-  conversasIniciadas   Int
-  mensagensEnviadas    Int
-  mensagensEntregues   Int
-  mensagensLidas       Int
+  id                 String   @id @default(cuid())
+  marcaId            String
+  capturadoEm        DateTime @default(now())
+  conversasIniciadas Int
+  mensagensEnviadas  Int
+  mensagensEntregues Int
+  mensagensLidas     Int
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -316,12 +323,12 @@ model WhatsappMetrica {
 // Espelho do status real dos Message Templates cadastrados na conta WhatsApp
 // Business (via endpoint /message_templates), substituindo a lista mockada.
 model WhatsappTemplate {
-  id           String                  @id @default(cuid())
+  id           String                 @id @default(cuid())
   marcaId      String
   nome         String
   status       StatusTemplateWhatsapp
   categoria    String
-  atualizadoEm DateTime                @default(now())
+  atualizadoEm DateTime               @default(now())
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -340,18 +347,18 @@ enum StatusEmailEnviado {
 // com senha de app, SendGrid SMTP relay, etc). A senha nunca é salva em texto
 // puro — sempre criptografada (src/lib/crypto.ts) e nunca devolvida pela API.
 model IntegracaoEmail {
-  id                        String    @id @default(cuid())
-  marcaId                   String    @unique
-  smtpHost                  String?
-  smtpPort                  Int?
-  smtpUsuario               String?
-  smtpSenhaCriptografada    String?
-  smtpSeguro                Boolean   @default(true) // TLS/SSL
-  emailRemetente            String?
-  nomeRemetente             String?
-  ativo                     Boolean   @default(false)
-  ultimoErro                String? // mensagem da última falha de envio/teste, para debug
-  ultimaSincronizacao       DateTime? // data do último envio (teste ou real) bem-sucedido
+  id                     String    @id @default(cuid())
+  marcaId                String    @unique
+  smtpHost               String?
+  smtpPort               Int?
+  smtpUsuario            String?
+  smtpSenhaCriptografada String?
+  smtpSeguro             Boolean   @default(true) // TLS/SSL
+  emailRemetente         String?
+  nomeRemetente          String?
+  ativo                  Boolean   @default(false)
+  ultimoErro             String? // mensagem da última falha de envio/teste, para debug
+  ultimaSincronizacao    DateTime? // data do último envio (teste ou real) bem-sucedido
 
   marca Marca @relation(fields: [marcaId], references: [id], onDelete: Cascade)
 
@@ -388,11 +395,11 @@ model EmailEnviado {
 // permissão de escrita; o "dispensar" individual por usuário é feito só no
 // cliente (sessionStorage), sem precisar de estado por-usuário no banco.
 model Aviso {
-  id        String  @id @default(cuid())
-  marcaId   String
-  titulo    String
-  mensagem  String  @db.Text
-  ativo     Boolean @default(true)
+  id       String  @id @default(cuid())
+  marcaId  String
+  titulo   String
+  mensagem String  @db.Text
+  ativo    Boolean @default(true)
 
   criadoPorId String?
   criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id], onDelete: SetNull)
@@ -414,6 +421,28 @@ model Secretaria {
   @@map("secretarias")
 }
 
+// Produto registrado na Ata, com preço unitário e quantidade registrada.
+// É a base para abater o que cada município comprou (ItemContrato) e para
+// calcular o valor de uma Venda apenas com o produto vendido.
+model ItemAta {
+  id            String  @id @default(cuid())
+  ataId         String
+  descricao     String
+  unidade       String  @default("un")
+  valorUnitario Decimal @db.Decimal(12, 2)
+  quantidade    Int // quantidade total registrada na ata
+
+  ata           Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  itensContrato ItemContrato[]
+  vendas        Venda[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ataId])
+  @@map("itens_ata")
+}
+
 enum TipoEmpenho {
   nota_empenho
   ordem_compra
@@ -421,22 +450,26 @@ enum TipoEmpenho {
 
 // Contrato efetivamente firmado a partir de uma Ata. Registra o valor
 // solicitado inicialmente pela prefeitura e o valor realmente contratado
-// (costuma ser menor, já que a prefeitura adquire só parte dos itens). O saldo
-// da Ata é valorAta menos a soma dos valorContratado. Modelo provisório: o
-// formato final será ajustado após validação com o cliente.
+// (costuma ser menor, já que a prefeitura adquire só parte dos itens).
+// Quando há itens (ItemContrato), valorContratado é a soma deles e o saldo da
+// ata é controlado por produto; contratos sem itens (ex.: dados de demonstração)
+// continuam abatendo apenas o valor.
 model Contrato {
   id              String   @id @default(cuid())
   marcaId         String
   ataId           String
   representanteId String?
   numero          String
+  municipio       String?
   valorSolicitado Decimal  @db.Decimal(12, 2)
   valorContratado Decimal  @db.Decimal(12, 2)
   assinadoEm      DateTime @default(now())
+  observacao      String?
 
   marca         Marca          @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   ata           Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
   representante Representante? @relation(fields: [representanteId], references: [id], onDelete: SetNull)
+  itens         ItemContrato[]
   empenhos      Empenho[]
 
   createdAt DateTime @default(now())
@@ -446,6 +479,24 @@ model Contrato {
   @@index([marcaId])
   @@index([ataId])
   @@map("contratos")
+}
+
+// Itens comprados em um contrato. O valor unitário é copiado do ItemAta no
+// momento do lançamento, para o histórico não mudar se o preço da ata for
+// reajustado depois.
+model ItemContrato {
+  id            String  @id @default(cuid())
+  contratoId    String
+  itemAtaId     String
+  quantidade    Int
+  valorUnitario Decimal @db.Decimal(12, 2)
+
+  contrato Contrato @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  itemAta  ItemAta  @relation(fields: [itemAtaId], references: [id], onDelete: Restrict)
+
+  @@index([contratoId])
+  @@index([itemAtaId])
+  @@map("itens_contrato")
 }
 
 // Nota de empenho ou ordem de compra emitida contra um Contrato.

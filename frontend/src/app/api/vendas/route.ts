@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     include: {
       representante: { select: { id: true, nome: true, cidade: true } },
       ata: { select: { id: true, numero: true, orgao: true } },
+      itemAta: { select: { id: true, descricao: true, unidade: true } },
     },
     orderBy: { criadaEm: "desc" },
   });
