@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authorize";
 const PAPEIS_ESCRITA = ["admin", "gestor_atas"] as const;
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -30,10 +30,40 @@ export async function POST(
 
   const ata = await prisma.ata.findUnique({
     where: { id: oficio.representante.ataId },
-    select: { id: true, valorAta: true },
+    select: { id: true, valorAta: true, _count: { select: { itens: true } } },
   });
   if (!ata) {
     return NextResponse.json({ error: "Ata do representante não encontrada." }, { status: 404 });
+  }
+
+  // A venda vale apenas o produto vendido (valor unitário x quantidade), não o
+  // total da ata. Atas sem produtos cadastrados mantêm o comportamento antigo
+  // (valor fixo da ata) para não quebrar o fluxo de quem ainda não migrou.
+  const body = await request.json().catch(() => null);
+  let itemAtaId: string | null = null;
+  let quantidade = 1;
+  let valorVenda = ata.valorAta;
+
+  if (ata._count.itens > 0) {
+    if (typeof body?.itemAtaId !== "string") {
+      return NextResponse.json(
+        { error: "Informe o produto (itemAtaId) vendido para homologar este ofício." },
+        { status: 400 }
+      );
+    }
+    quantidade = body.quantidade ?? 1;
+    if (!Number.isInteger(quantidade) || quantidade < 1) {
+      return NextResponse.json({ error: "quantidade deve ser um inteiro maior que zero." }, { status: 400 });
+    }
+    const item = await prisma.itemAta.findFirst({
+      where: { id: body.itemAtaId, ataId: ata.id },
+      select: { id: true, valorUnitario: true },
+    });
+    if (!item) {
+      return NextResponse.json({ error: "Produto não pertence a esta ata." }, { status: 400 });
+    }
+    itemAtaId = item.id;
+    valorVenda = item.valorUnitario.mul(quantidade);
   }
 
   const anoAtual = new Date().getFullYear();
@@ -69,7 +99,9 @@ export async function POST(
         representanteId: oficio.representanteId,
         ataId: ata.id,
         oficioId: oficio.id,
-        valor: ata.valorAta,
+        itemAtaId,
+        quantidade,
+        valor: valorVenda,
         status: "pendente",
       },
     });
