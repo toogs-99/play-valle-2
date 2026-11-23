@@ -122,7 +122,13 @@ export default function ContratosPage() {
 
   useEffect(() => {
     if (!marca || !ataId) return;
-    carregarAta(marca.marcaId, ataId).catch((e) => setError(e.message));
+    (async () => {
+      try {
+        await carregarAta(marca.marcaId, ataId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erro inesperado.");
+      }
+    })();
   }, [marca, ataId, carregarAta]);
 
   const totais = useMemo(
