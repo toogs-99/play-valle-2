@@ -48,7 +48,9 @@ npm run prisma:seed-demo
 npm run dev
 ```
 
-O seed de demonstração cria atas, contratos e notas de empenho/ordens de compra com o prefixo `DEMO` no número, para o painel de saldo poder ser avaliado. É idempotente e não deve ser usado em produção.
+O seed de demonstração cria atas, contratos e notas de empenho/ordens de compra com o prefixo `DEMO` no número. A ata `DEMO-004/2026` traz produtos, um contrato por itens, um empenho e uma venda pendente só do produto vendido, para testar o fluxo novo de ponta a ponta. É idempotente.
+
+Para remover tudo depois: `npm run prisma:clean-demo` (apaga só as atas `DEMO-*` e o que depende delas). **Em produção, use só temporariamente**: os dados fictícios entram nos totais do Painel Geral (faturamento pendente, rankings e saldo) enquanto existirem.
 
 A aplicação sobe em **http://localhost:3001** (porta customizada — ver `package.json`).
 
