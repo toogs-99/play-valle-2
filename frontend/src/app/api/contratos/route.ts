@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authorize";
-import type { Prisma, TipoContrato } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 const PAPEIS_LEITURA = ["admin", "gestor_atas", "financeiro"] as const;
 const PAPEIS_ESCRITA = ["admin", "gestor_atas"] as const;
-const TIPOS: TipoContrato[] = ["contrato", "empenho"];
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -18,7 +17,7 @@ export async function GET(request: Request) {
   if (check.error) return check.error;
 
   const ataId = url.searchParams.get("ataId");
-  const where: Prisma.ContratoWhereInput = { ata: { marcaId } };
+  const where: Prisma.ContratoWhereInput = { marcaId };
   if (ataId) where.ataId = ataId;
 
   const contratos = await prisma.contrato.findMany({
@@ -26,8 +25,9 @@ export async function GET(request: Request) {
     include: {
       ata: { select: { id: true, numero: true, orgao: true } },
       itens: { include: { itemAta: { select: { descricao: true, unidade: true } } } },
+      empenhos: { orderBy: { emitidoEm: "desc" } },
     },
-    orderBy: { data: "desc" },
+    orderBy: { assinadoEm: "desc" },
   });
 
   return NextResponse.json({
@@ -35,14 +35,14 @@ export async function GET(request: Request) {
     papel: check.papel,
     contratos: contratos.map((c) => ({
       ...c,
-      valorTotal: c.itens.reduce((acc, i) => acc + Number(i.valorUnitario) * i.quantidade, 0),
+      valorEmpenhado: c.empenhos.reduce((acc, e) => acc + Number(e.valor), 0),
     })),
   });
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  const { ataId, tipo, numero, municipio, data, observacao, itens } = body ?? {};
+  const { ataId, numero, municipio, data, observacao, itens, representanteId, valorSolicitado } = body ?? {};
 
   if (typeof ataId !== "string") {
     return NextResponse.json({ error: "ataId é obrigatório." }, { status: 400 });
@@ -58,8 +58,8 @@ export async function POST(request: Request) {
   if (typeof numero !== "string" || !numero.trim() || typeof municipio !== "string" || !municipio.trim()) {
     return NextResponse.json({ error: "numero e municipio são obrigatórios." }, { status: 400 });
   }
-  if (tipo !== undefined && !TIPOS.includes(tipo)) {
-    return NextResponse.json({ error: "tipo deve ser 'contrato' ou 'empenho'." }, { status: 400 });
+  if (valorSolicitado !== undefined && (typeof valorSolicitado !== "number" || !(valorSolicitado >= 0))) {
+    return NextResponse.json({ error: "valorSolicitado inválido." }, { status: 400 });
   }
   const dataContrato = new Date(data);
   if (typeof data !== "string" || Number.isNaN(dataContrato.getTime())) {
@@ -107,13 +107,32 @@ export async function POST(request: Request) {
         }
       }
 
+      if (typeof representanteId === "string") {
+        const rep = await tx.representante.findFirst({ where: { id: representanteId, ataId }, select: { id: true } });
+        if (!rep) throw new ErroValidacao("Representante não pertence a esta ata.");
+      }
+
+      const valorContratado = produtos.reduce(
+        (acc, p) => acc.add(p.valorUnitario.mul(pedido.get(p.id)!)),
+        new Prisma.Decimal(0)
+      );
+
+      const duplicado = await tx.contrato.findUnique({
+        where: { marcaId_numero: { marcaId: ata.marcaId, numero: numero.trim() } },
+        select: { id: true },
+      });
+      if (duplicado) throw new ErroValidacao(`Já existe um contrato com o número ${numero.trim()}.`);
+
       return tx.contrato.create({
         data: {
+          marcaId: ata.marcaId,
           ataId,
-          tipo: tipo ?? "empenho",
+          representanteId: typeof representanteId === "string" ? representanteId : null,
           numero: numero.trim(),
           municipio: municipio.trim(),
-          data: dataContrato,
+          valorSolicitado: valorSolicitado ?? valorContratado,
+          valorContratado,
+          assinadoEm: dataContrato,
           observacao: typeof observacao === "string" && observacao.trim() ? observacao.trim() : null,
           itens: {
             create: produtos.map((p) => ({

@@ -28,7 +28,21 @@ interface DashboardData {
     totalAutorizacoes: number;
     faturamentoPago: number;
     faturamentoPendente: number;
+    totalContratado: number;
+    totalEmpenhado: number;
+    saldoDisponivel: number;
   };
+  saldoAtas: {
+    id: string;
+    numero: string;
+    orgao: string;
+    valorAta: number;
+    solicitado: number;
+    contratado: number;
+    empenhado: number;
+    saldo: number;
+    totalContratos: number;
+  }[];
   receitaMensal: { date: string; revenue: number }[];
   topVendedores: { name: string; value: number }[];
   topAtas: { name: string; value: number }[];
@@ -149,7 +163,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { kpis, receitaMensal, topVendedores, topAtas } = dashboard;
+  const { kpis, receitaMensal, topVendedores, topAtas, saldoAtas } = dashboard;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
@@ -321,6 +335,78 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Controle de saldo por Ata */}
+      <div className="bg-card border border-border rounded-[var(--radius)] shadow-sm overflow-hidden animate-fade-in-slide-up [animation-delay:275ms]">
+        <div className="px-6 py-5 border-b border-border bg-muted/20">
+          <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">
+            Contratos e Empenhos
+          </span>
+          <h3 className="font-bold text-sm text-foreground font-display mt-0.5">Controle de Saldo por Ata</h3>
+          <p className="text-[11px] text-muted-foreground font-text mt-1">
+            Compara o valor integral da ata com o que as prefeituras realmente contrataram e empenharam.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 border-b border-border">
+          <div>
+            <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">Contratado</span>
+            <p className="text-xl font-black text-foreground font-display mt-1">{currencyFormatter(kpis.totalContratado)}</p>
+          </div>
+          <div>
+            <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">Empenhado</span>
+            <p className="text-xl font-black text-foreground font-display mt-1">{currencyFormatter(kpis.totalEmpenhado)}</p>
+          </div>
+          <div>
+            <span className="text-xxs font-semibold text-muted-foreground uppercase tracking-wider font-text">Saldo disponível</span>
+            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-display mt-1">{currencyFormatter(kpis.saldoDisponivel)}</p>
+          </div>
+        </div>
+
+        {saldoAtas.length === 0 ? (
+          <div className="p-10 text-center text-muted-foreground">
+            <p className="text-xs font-text">Nenhuma ata cadastrada.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase font-text">
+                  <th className="p-4">Ata</th>
+                  <th className="p-4 text-right">Valor da Ata</th>
+                  <th className="p-4 text-right">Solicitado</th>
+                  <th className="p-4 text-right">Contratado</th>
+                  <th className="p-4 text-right">Empenhado</th>
+                  <th className="p-4 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {saldoAtas.map((ata) => (
+                  <tr key={ata.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="p-4 font-text">
+                      <span className="font-semibold text-foreground block">{ata.numero}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {ata.orgao} · {ata.totalContratos} contrato(s)
+                      </span>
+                    </td>
+                    <td className="p-4 text-right text-muted-foreground font-text">{currencyFormatter(ata.valorAta)}</td>
+                    <td className="p-4 text-right text-muted-foreground font-text">{currencyFormatter(ata.solicitado)}</td>
+                    <td className="p-4 text-right font-bold text-foreground font-text">{currencyFormatter(ata.contratado)}</td>
+                    <td className="p-4 text-right text-muted-foreground font-text">{currencyFormatter(ata.empenhado)}</td>
+                    <td
+                      className={`p-4 text-right font-bold font-text ${
+                        ata.saldo < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      {currencyFormatter(ata.saldo)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Vendas Pendentes (gestão manual) */}
