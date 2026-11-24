@@ -46,6 +46,15 @@ export async function GET(request: Request) {
       arquivoNomeOriginal: true,
       arquivoMimeType: true,
       sentAt: true,
+      vendedor: { select: { id: true, nome: true } },
+      itens: {
+        select: {
+          id: true,
+          itemAtaId: true,
+          quantidade: true,
+          itemAta: { select: { descricao: true, unidade: true, valorUnitario: true } },
+        },
+      },
       autorizacaoArquivoNome: true,
       autorizacaoArquivoEnviadoEm: true,
       createdAt: true,
@@ -78,7 +87,7 @@ export async function POST(request: Request) {
   const check = await requireRole(marcaId, [...PAPEIS_ESCRITA]);
   if (check.error) return check.error;
 
-  const { representanteId, arquivoBase64, arquivoMimeType, arquivoNomeOriginal } = body ?? {};
+  const { representanteId, arquivoBase64, arquivoMimeType, arquivoNomeOriginal, vendedorId, itens } = body ?? {};
 
   if (
     typeof representanteId !== "string" ||
@@ -124,10 +133,54 @@ export async function POST(request: Request) {
     );
   }
 
+  // Vendedor responsável (opcional): precisa ser vendedor desta marca.
+  if (vendedorId != null) {
+    const vinculo =
+      typeof vendedorId === "string" &&
+      (await prisma.usuarioMarca.findFirst({ where: { marcaId, usuarioId: vendedorId, papel: "vendedor" } }));
+    if (!vinculo) {
+      return NextResponse.json({ error: "Vendedor não encontrado nesta marca." }, { status: 400 });
+    }
+  }
+
+  // Produtos pedidos no ofício: precisam ser da ata do representante.
+  const itensPedidos: { itemAtaId: string; quantidade: number }[] = [];
+  if (itens != null) {
+    if (!Array.isArray(itens)) {
+      return NextResponse.json({ error: "itens deve ser uma lista." }, { status: 400 });
+    }
+    const vistos = new Set<string>();
+    for (const it of itens) {
+      if (
+        typeof it?.itemAtaId !== "string" ||
+        !Number.isInteger(it.quantidade) ||
+        it.quantidade < 1 ||
+        vistos.has(it.itemAtaId)
+      ) {
+        return NextResponse.json(
+          { error: "Cada item precisa de itemAtaId único e quantidade inteira maior que zero." },
+          { status: 400 }
+        );
+      }
+      vistos.add(it.itemAtaId);
+      itensPedidos.push({ itemAtaId: it.itemAtaId, quantidade: it.quantidade });
+    }
+    if (itensPedidos.length > 0) {
+      const validos = await prisma.itemAta.count({
+        where: { id: { in: itensPedidos.map((i) => i.itemAtaId) }, ataId: representante.ataId },
+      });
+      if (validos !== itensPedidos.length) {
+        return NextResponse.json({ error: "Há produto que não pertence à ata do representante." }, { status: 400 });
+      }
+    }
+  }
+
   const oficio = await prisma.oficio.create({
     data: {
       marcaId,
       representanteId,
+      vendedorId: vendedorId ?? null,
+      itens: { create: itensPedidos },
       arquivoBase64,
       arquivoMimeType,
       arquivoNomeOriginal,
@@ -140,6 +193,8 @@ export async function POST(request: Request) {
       arquivoNomeOriginal: true,
       arquivoMimeType: true,
       sentAt: true,
+      vendedor: { select: { id: true, nome: true } },
+      itens: { select: { id: true, itemAtaId: true, quantidade: true } },
       createdAt: true,
       updatedAt: true,
       representante: {

@@ -63,6 +63,7 @@ model Usuario {
 
   marcas        UsuarioMarca[]
   avisosCriados Aviso[]
+  oficios       Oficio[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -132,6 +133,8 @@ model Oficio {
   id                  String       @id @default(cuid())
   marcaId             String
   representanteId     String
+  // Vendedor (usuário da marca) responsável por este ofício/venda.
+  vendedorId          String?
   status              StatusOficio @default(pending)
   arquivoNomeOriginal String
   arquivoMimeType     String
@@ -147,15 +150,36 @@ model Oficio {
 
   marca         Marca              @relation(fields: [marcaId], references: [id], onDelete: Restrict)
   representante Representante      @relation(fields: [representanteId], references: [id], onDelete: Cascade)
+  vendedor      Usuario?           @relation(fields: [vendedorId], references: [id], onDelete: SetNull)
   autorizacao   AutorizacaoAdesao?
   venda         Venda?
+  itens         ItemOficio[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([marcaId])
   @@index([representanteId])
+  @@index([vendedorId])
   @@map("oficios")
+}
+
+// Produto (item da ata) que o município pediu no ofício, com a quantidade.
+// Na homologação estes itens viram a venda.
+model ItemOficio {
+  id         String @id @default(cuid())
+  oficioId   String
+  itemAtaId  String
+  quantidade Int
+
+  oficio  Oficio  @relation(fields: [oficioId], references: [id], onDelete: Cascade)
+  itemAta ItemAta @relation(fields: [itemAtaId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([oficioId, itemAtaId])
+  @@index([itemAtaId])
+  @@map("itens_oficio")
 }
 
 model AutorizacaoAdesao {
@@ -434,6 +458,7 @@ model ItemAta {
 
   ata           Ata            @relation(fields: [ataId], references: [id], onDelete: Cascade)
   itensContrato ItemContrato[]
+  itensOficio   ItemOficio[]
   vendas        Venda[]
 
   createdAt DateTime @default(now())

@@ -52,6 +52,8 @@ interface Oficio {
   arquivoNomeOriginal: string;
   sentAt: string;
   autorizacaoArquivoNome: string | null;
+  vendedor: { id: string; nome: string } | null;
+  itens: { id: string; itemAtaId: string; quantidade: number; itemAta: { descricao: string; unidade: string } }[];
   representante: { id: string; nome: string; cidade: string };
   autorizacao: { id: string; numero: string; dataEmissao: string } | null;
 }
@@ -180,6 +182,25 @@ export default function AtaDetailPage({
   const [oficioParaAprovar, setOficioParaAprovar] = useState<string | null>(null);
   const [aprovarItemId, setAprovarItemId] = useState("");
   const [aprovarQtd, setAprovarQtd] = useState("1");
+
+  // Anexar ofício: vendedor responsável e produtos pedidos
+  const [vendedores, setVendedores] = useState<{ id: string; nome: string }[]>([]);
+  const [uploadVendedorId, setUploadVendedorId] = useState("");
+  const [uploadItens, setUploadItens] = useState<{ itemAtaId: string; quantidade: string }[]>([]);
+  const [uploadAviso, setUploadAviso] = useState("");
+  const [lendoPdf, setLendoPdf] = useState(false);
+
+  useEffect(() => {
+    if (!isOficioModalOpen || !marcaAtiva) return;
+    (async () => {
+      const [rv, ri] = await Promise.all([
+        fetch(`/api/vendedores?marcaId=${marcaAtiva.marcaId}`),
+        fetch(`/api/atas/${ataId}/itens`),
+      ]);
+      if (rv.ok) setVendedores((await rv.json()).vendedores);
+      if (ri.ok) setItensAta((await ri.json()).itens);
+    })().catch(() => {});
+  }, [isOficioModalOpen, marcaAtiva, ataId]);
 
   const fetchRepresentantes = useCallback(async (marcaId: string) => {
     const res = await fetch(`/api/representantes?marcaId=${marcaId}&ataId=${ataId}`);
@@ -387,6 +408,32 @@ export default function AtaDetailPage({
     }
   };
 
+  // Tenta ler o PDF e pré-preencher os produtos pedidos. Se não conseguir, o
+  // usuário lança os itens um por um.
+  const lerItensDoPdf = async (base64: string) => {
+    if (!marcaAtiva || itensAta.length === 0) return;
+    setLendoPdf(true);
+    setUploadAviso("");
+    try {
+      const res = await fetch("/api/oficios/extrair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marcaId: marcaAtiva.marcaId, ataId, arquivoBase64: base64 }),
+      });
+      const data = await res.json();
+      if (res.ok && data.itens.length > 0) {
+        setUploadItens(data.itens.map((i: { itemAtaId: string; quantidade: number }) => ({ itemAtaId: i.itemAtaId, quantidade: String(i.quantidade) })));
+        setUploadAviso("Li o PDF e preenchi os produtos abaixo. Confira antes de anexar.");
+      } else {
+        setUploadAviso((data.motivo ?? "Não consegui ler o PDF.") + " Adicione os produtos um por um.");
+      }
+    } catch {
+      setUploadAviso("Não consegui ler o PDF. Adicione os produtos um por um.");
+    } finally {
+      setLendoPdf(false);
+    }
+  };
+
   // Convert selected file to base64 for upload
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -406,6 +453,7 @@ export default function AtaDetailPage({
       // strip the "data:application/pdf;base64," prefix
       const base64 = result.split(",")[1] || "";
       setUploadFileBase64(base64);
+      void lerItensDoPdf(base64);
     };
     reader.readAsDataURL(file);
   };
@@ -421,6 +469,14 @@ export default function AtaDetailPage({
       return;
     }
 
+    if (itensAta.length > 0) {
+      const ids = uploadItens.map((i) => i.itemAtaId);
+      if (uploadItens.length === 0 || ids.includes("") || new Set(ids).size !== ids.length || uploadItens.some((i) => !(Number(i.quantidade) >= 1))) {
+        setUploadError("Informe ao menos um produto, sem repetir, com quantidade maior que zero.");
+        return;
+      }
+    }
+
     setUploadSubmitting(true);
     try {
       const res = await fetch("/api/oficios", {
@@ -432,6 +488,8 @@ export default function AtaDetailPage({
           arquivoBase64: uploadFileBase64,
           arquivoMimeType: uploadFile.type,
           arquivoNomeOriginal: uploadFile.name,
+          vendedorId: uploadVendedorId || undefined,
+          itens: uploadItens.map((i) => ({ itemAtaId: i.itemAtaId, quantidade: Number(i.quantidade) })),
         }),
       });
       const data = await res.json();
@@ -446,6 +504,9 @@ export default function AtaDetailPage({
       setUploadRepresentanteId("");
       setUploadFile(null);
       setUploadFileBase64("");
+      setUploadVendedorId("");
+      setUploadItens([]);
+      setUploadAviso("");
       setIsPreFilledUpload(false);
       setIsOficioModalOpen(false);
     } catch {
@@ -498,6 +559,11 @@ export default function AtaDetailPage({
   // Atas com produtos cadastrados pedem o produto vendido; as demais seguem
   // o fluxo antigo (valor fixo da ata).
   const iniciarAprovacao = async (oficioId: string) => {
+    // Ofício com produtos lançados já traz o que será vendido.
+    if ((oficios.find((o) => o.id === oficioId)?.itens.length ?? 0) > 0) {
+      await handleApprove(oficioId);
+      return;
+    }
     const res = await fetch(`/api/atas/${ataId}/itens`);
     const itens = res.ok ? (await res.json()).itens : [];
     if (itens.length === 0) {
@@ -1183,6 +1249,9 @@ Representante Autorizado`;
                     setIsPreFilledUpload(false);
                     setUploadFile(null);
                     setUploadFileBase64("");
+                    setUploadVendedorId("");
+                    setUploadItens([]);
+                    setUploadAviso("");
                     setUploadError("");
                     setIsOficioModalOpen(true);
                   }}
@@ -1205,6 +1274,8 @@ Representante Autorizado`;
                     <tr className="border-b border-border bg-muted/30 text-[10px] font-bold text-muted-foreground uppercase font-text">
                       <th className="p-4">Remetente</th>
                       <th className="p-4">Cidade</th>
+                      <th className="p-4">Vendedor</th>
+                      <th className="p-4">Produtos</th>
                       <th className="p-4">Arquivo</th>
                       <th className="p-4">Enviado Em</th>
                       <th className="p-4 text-right">Ação</th>
@@ -1215,6 +1286,12 @@ Representante Autorizado`;
                       <tr key={oficio.id} className="hover:bg-muted/20 transition-colors">
                         <td className="p-4 font-semibold text-foreground font-text">{oficio.representante.nome}</td>
                         <td className="p-4 text-muted-foreground font-text">{oficio.representante.cidade}</td>
+                        <td className="p-4 text-foreground font-text">{oficio.vendedor?.nome ?? "—"}</td>
+                        <td className="p-4 text-muted-foreground font-text">
+                          {oficio.itens.length > 0
+                            ? oficio.itens.map((i) => `${i.quantidade} ${i.itemAta.unidade} × ${i.itemAta.descricao}`).join(" · ")
+                            : "—"}
+                        </td>
                         <td className="p-4 text-primary font-medium">
                           <button
                             onClick={() => window.open(`/api/oficios/${oficio.id}/pdf`, "_blank")}
@@ -1493,9 +1570,72 @@ Representante Autorizado`;
                   </div>
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block font-text">
+                    Vendedor responsável
+                  </label>
+                  <select
+                    value={uploadVendedorId}
+                    onChange={(e) => setUploadVendedorId(e.target.value)}
+                    className="w-full px-3 py-2 bg-muted/40 border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-text"
+                  >
+                    <option value="">Sem vendedor</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>{v.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {itensAta.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block font-text">
+                      Produtos pedidos no ofício
+                    </label>
+                    {lendoPdf && <p className="text-[10px] text-muted-foreground font-text">Lendo o PDF...</p>}
+                    {uploadAviso && !lendoPdf && <p className="text-[10px] text-primary font-text">{uploadAviso}</p>}
+                    {uploadItens.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={it.itemAtaId}
+                          onChange={(e) => setUploadItens((prev) => prev.map((x, i) => (i === idx ? { ...x, itemAtaId: e.target.value } : x)))}
+                          className="flex-1 min-w-0 px-2 py-2 bg-muted/40 border border-border rounded-xl text-xs text-foreground font-text"
+                        >
+                          <option value="">Produto...</option>
+                          {itensAta.map((p) => (
+                            <option key={p.id} value={p.id}>{p.descricao}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          value={it.quantidade}
+                          onChange={(e) => setUploadItens((prev) => prev.map((x, i) => (i === idx ? { ...x, quantidade: e.target.value } : x)))}
+                          className="w-20 px-2 py-2 bg-muted/40 border border-border rounded-xl text-xs text-foreground font-text"
+                          aria-label="Quantidade"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setUploadItens((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-rose-600 p-1"
+                          aria-label="Remover item"
+                        >
+                          <XIcon size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setUploadItens((prev) => [...prev, { itemAtaId: "", quantidade: "1" }])}
+                      className="text-[10px] font-semibold text-primary hover:underline"
+                    >
+                      + Adicionar produto
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={uploadSubmitting}
+                  disabled={uploadSubmitting || lendoPdf}
                   className="w-full flex items-center justify-center gap-1.5 bg-foreground hover:opacity-90 disabled:opacity-50 text-background font-semibold text-xs py-2.5 rounded-xl transition-opacity mt-2"
                 >
                   <Upload size={14} />
