@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { requireRole } from "@/lib/authorize";
 
 const PAPEIS_ESCRITA = ["admin", "gestor_atas"] as const;
@@ -12,7 +13,10 @@ export async function POST(
 
   const oficio = await prisma.oficio.findUnique({
     where: { id },
-    include: { representante: { select: { ataId: true } } },
+    include: {
+      representante: { select: { ataId: true } },
+      itens: { select: { itemAtaId: true, quantidade: true, itemAta: { select: { valorUnitario: true } } } },
+    },
   });
   if (!oficio) {
     return NextResponse.json({ error: "Ofício não encontrado." }, { status: 404 });
@@ -43,18 +47,27 @@ export async function POST(
     return NextResponse.json({ error: "Ata do representante não encontrada." }, { status: 404 });
   }
 
-  // A venda vale apenas o produto vendido (valor unitário x quantidade), não o
-  // total da ata. Atas sem produtos cadastrados mantêm o comportamento antigo
-  // (valor fixo da ata) para não quebrar o fluxo de quem ainda não migrou.
+  // A venda vale apenas o que o município pediu (valor unitário x quantidade
+  // de cada item do ofício), não o total da ata. Ofícios sem itens lançados
+  // (antigos) ainda aceitam um único produto informado na aprovação, e atas sem
+  // produtos cadastrados mantêm o valor fixo da ata.
   const body = await request.json().catch(() => null);
   let itemAtaId: string | null = null;
   let quantidade = 1;
   let valorVenda = ata.valorAta;
 
-  if (ata._count.itens > 0) {
+  if (oficio.itens.length > 0) {
+    quantidade = oficio.itens.reduce((acc, i) => acc + i.quantidade, 0);
+    valorVenda = oficio.itens.reduce(
+      (acc, i) => acc.add(i.itemAta.valorUnitario.mul(i.quantidade)),
+      new Prisma.Decimal(0)
+    );
+    // Um único produto fica ligado direto à venda; vários ficam só no ofício.
+    if (oficio.itens.length === 1) itemAtaId = oficio.itens[0].itemAtaId;
+  } else if (ata._count.itens > 0) {
     if (typeof body?.itemAtaId !== "string") {
       return NextResponse.json(
-        { error: "Informe o produto (itemAtaId) vendido para homologar este ofício." },
+        { error: "Informe os produtos do ofício (ou o itemAtaId) para homologá-lo." },
         { status: 400 }
       );
     }
