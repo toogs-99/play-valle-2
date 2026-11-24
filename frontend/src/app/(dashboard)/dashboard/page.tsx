@@ -57,6 +57,7 @@ interface VendaPendente {
   ata: { id: string; numero: string };
   quantidade: number;
   itemAta: { id: string; descricao: string; unidade: string } | null;
+  oficio?: { itens: { quantidade: number; itemAta: { descricao: string; unidade: string } }[] };
 }
 
 const PAPEIS_MARCAR_PAGA = ["admin", "financeiro"];
@@ -448,7 +449,11 @@ export default function DashboardPage() {
                     <td className="p-4 font-semibold text-foreground font-text">{venda.representante.nome}</td>
                     <td className="p-4 text-muted-foreground font-text">{venda.ata.numero}</td>
                     <td className="p-4 text-muted-foreground font-text">
-                      {venda.itemAta ? `${venda.quantidade} ${venda.itemAta.unidade} × ${venda.itemAta.descricao}` : "—"}
+                      {venda.oficio && venda.oficio.itens.length > 0
+                        ? venda.oficio.itens.map((i) => `${i.quantidade} ${i.itemAta.unidade} × ${i.itemAta.descricao}`).join(" · ")
+                        : venda.itemAta
+                          ? `${venda.quantidade} ${venda.itemAta.unidade} × ${venda.itemAta.descricao}`
+                          : "—"}
                     </td>
                     <td className="p-4 text-muted-foreground font-text">
                       {new Date(venda.criadaEm).toLocaleDateString("pt-BR")}
