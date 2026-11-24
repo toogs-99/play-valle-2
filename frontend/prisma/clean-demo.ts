@@ -18,10 +18,13 @@ async function main() {
 
   await prisma.$transaction([
     prisma.venda.deleteMany({ where: { ataId: { in: ataIds } } }),
+    // itens de ofício também referenciam itens da ata com RESTRICT
+    prisma.oficio.deleteMany({ where: { representante: { ataId: { in: ataIds } } } }),
     prisma.itemContrato.deleteMany({ where: { contrato: { ataId: { in: ataIds } } } }),
     prisma.contrato.deleteMany({ where: { ataId: { in: ataIds } } }), // empenhos caem em cascata
     prisma.ata.deleteMany({ where: { id: { in: ataIds } } }), // itens, representantes, ofícios em cascata
   ]);
+  await prisma.usuario.deleteMany({ where: { email: "demo-vendedor@localhost.test" } });
   console.log(`${ataIds.length} ata(s) de demonstração removida(s).`);
 }
 
