@@ -7,7 +7,7 @@ const PAPEIS_ESCRITA = ["admin", "gestor_atas"] as const;
 async function carregarItem(id: string) {
   return prisma.itemAta.findUnique({
     where: { id },
-    include: { ata: { select: { marcaId: true } }, _count: { select: { itensContrato: true } } },
+    include: { ata: { select: { marcaId: true } }, _count: { select: { itensContrato: true, itensOficio: true } } },
   });
 }
 
@@ -66,9 +66,9 @@ export async function DELETE(
   const check = await requireRole(item.ata.marcaId, [...PAPEIS_ESCRITA]);
   if (check.error) return check.error;
 
-  if (item._count.itensContrato > 0) {
+  if (item._count.itensContrato > 0 || item._count.itensOficio > 0) {
     return NextResponse.json(
-      { error: "Item já usado em contratos/empenhos e não pode ser removido." },
+      { error: "Item já usado em contratos/empenhos/ofícios e não pode ser removido." },
       { status: 409 }
     );
   }
