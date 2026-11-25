@@ -411,7 +411,9 @@ export default function AtaDetailPage({
   // Tenta ler o PDF e pré-preencher os produtos pedidos. Se não conseguir, o
   // usuário lança os itens um por um.
   const lerItensDoPdf = async (base64: string) => {
-    if (!marcaAtiva || itensAta.length === 0) return;
+    // Não depende de itensAta: o arquivo pode ser escolhido antes da lista de
+    // produtos terminar de carregar; o servidor já cruza com os itens da ata.
+    if (!marcaAtiva) return;
     setLendoPdf(true);
     setUploadAviso("");
     try {
